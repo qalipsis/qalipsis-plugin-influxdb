@@ -1,11 +1,21 @@
 package io.qalipsis.plugins.influxdb.poll
 
-data class InfluxDbPollResults(
-    val results: List<Map<String, Any?>>
-    // TODO Add the meters.
-) : Iterable<InfluxDbPollResult> {
+/**
+ * Wrapper for the result of poll in InfluxDb.
+ *
+ *
+ * @property results list of InfluxDb records.
+ * @property meters of the poll step.
+ *
+ * @author Alex Averyanov
+ */
 
-    override fun iterator(): Iterator<InfluxDbPollResult> {
-        TODO("Not yet implemented")
+data class InfluxDbPollResults(
+    val results: List<InfluxDbPollRecord>,
+    val meters: InfluxDbQueryMeters
+) : Iterable<InfluxDbPollRecord> {
+
+    override fun iterator(): Iterator<InfluxDbPollRecord> {
+        return results.iterator()
     }
 }

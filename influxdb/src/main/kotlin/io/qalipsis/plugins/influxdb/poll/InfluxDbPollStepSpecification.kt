@@ -1,9 +1,17 @@
 package io.qalipsis.plugins.influxdb.poll
 
+import io.qalipsis.api.annotations.Spec
+import io.qalipsis.api.context.DirectedAcyclicGraphId
+import io.qalipsis.api.context.StepName
+import io.qalipsis.api.retry.RetryPolicy
 import io.qalipsis.api.scenario.StepSpecificationRegistry
+import io.qalipsis.api.steps.AbstractStepSpecification
 import io.qalipsis.api.steps.BroadcastSpecification
 import io.qalipsis.api.steps.LoopableSpecification
+import io.qalipsis.api.steps.SingletonConfiguration
+import io.qalipsis.api.steps.SingletonType
 import io.qalipsis.api.steps.StepMonitoringConfiguration
+import io.qalipsis.api.steps.StepReportingSpecification
 import io.qalipsis.api.steps.StepSpecification
 import io.qalipsis.api.steps.UnicastSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbScenarioSpecification
@@ -11,6 +19,8 @@ import io.qalipsis.plugins.influxdb.InfluxdbStepSpecification
 import org.influxdb.dto.Query
 import java.time.Duration
 import javax.validation.constraints.NotBlank
+import javax.validation.constraints.NotEmpty
+import javax.validation.constraints.NotNull
 
 interface InfluxDbPollStepSpecification :
     StepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
@@ -21,6 +31,12 @@ interface InfluxDbPollStepSpecification :
      * Configures the connection to the InfluxDB Server.
      */
     fun connect(connection: InfluxDbPollStepConnection.() -> Unit)
+
+    /**
+     * Defines the prepared statement to execute when polling. The query must contain ordering clauses, the tie-breaker
+     * column being set as first column to sort.
+     */
+    fun search(searchConfiguration: InfluxDbSearchConfiguration.() -> Unit)
 
     /**
      * Creates the factory to execute to poll data.
@@ -58,26 +74,47 @@ interface InfluxDbPollStepConnection {
 
 }
 
-internal class InfluxDbPollStepSpecificationImpl : InfluxDbPollStepSpecification {
+internal class InfluxDbPollStepSpecificationImpl(
+) :  AbstractStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>(),
+    InfluxDbPollStepSpecification {
+
+    internal var searchConfig = InfluxDbSearchConfiguration()
+
+    override val singletonConfiguration: SingletonConfiguration = SingletonConfiguration(SingletonType.UNICAST)
 
     val connectionConfiguration = InfluxDbPollStepConnectionImpl()
 
     val monitoringConfiguration = StepMonitoringConfiguration()
 
+    @field:NotNull
+    internal lateinit var query: () -> Query
+
+    internal var flattenOutput = false
+
+    @field:NotNull
+    internal var pollPeriod: Duration = Duration.ofSeconds(DefaultValues.pollDurationInSeconds)
+
+    internal val bindParameters: MutableMap<@NotBlank String, Any> = mutableMapOf()
+
     override fun connect(connection: InfluxDbPollStepConnection.() -> Unit) {
         this.connectionConfiguration.connection()
     }
 
+    override fun search(searchConfiguration: InfluxDbSearchConfiguration.() -> Unit) {
+        searchConfig.searchConfiguration()
+    }
+
     override fun query(queryFactory: () -> Query) {
-        TODO("Not yet implemented")
+        query = queryFactory
     }
 
     override fun bindParameters(vararg param: Pair<String, Any>) {
-        TODO("Not yet implemented")
+        this.bindParameters.clear()
+        this.bindParameters.putAll(param)
     }
 
     override fun pollDelay(delay: Duration) {
-        TODO("Not yet implemented")
+        pollPeriod = delay
     }
 
     override fun monitoring(monitoring: StepMonitoringConfiguration.() -> Unit) {
@@ -114,8 +151,27 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
     }
 }
 
+internal object DefaultValues {
+    const val pollDurationInSeconds = 10L
+}
 
 /**
+ * @property database name of db to search
+ * @property collection collection in db (table in sql)
+ * @property query [Document] query for search
+ * @property tieBreaker defines the name, which is the value used to limit the records for the next poll.
+ * The tie-breaker must be used as the first sort clause of the query and always be not null. Only the records
+ * from the database having a [tieBreaker] greater (or less if sorted descending) than the last polled value will be fetched at next poll.
+ */
+@Spec
+data class InfluxDbSearchConfiguration(
+    @field:NotBlank var database: String = "",
+    @field:NotBlank var collection: String = "",
+    @field:NotNull var query: Document = Document(),
+    @field:NotBlank var tieBreaker: String = ""
+)
+
+    /**
  * Creates an InfluxDB poll step in order to periodically fetch data from an InfluxDB server.
  *
  * This step is generally used in conjunction with a left join to assert data or inject them in a workflow
