@@ -18,9 +18,11 @@ import io.qalipsis.plugins.influxdb.InfluxdbScenarioSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbStepSpecification
 import org.influxdb.dto.Query
 import java.time.Duration
+import java.time.Instant
 import javax.validation.constraints.NotBlank
 import javax.validation.constraints.NotEmpty
 import javax.validation.constraints.NotNull
+import org.influxdb.dto.QueryResult
 
 interface InfluxDbPollStepSpecification :
     StepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
@@ -31,13 +33,6 @@ interface InfluxDbPollStepSpecification :
      * Configures the connection to the InfluxDB Server.
      */
     fun connect(connection: InfluxDbPollStepConnection.() -> Unit)
-
-    /**
-     * Defines the prepared statement to execute when polling. The query must contain ordering clauses, the tie-breaker
-     * column being set as first column to sort.
-     */
-    fun search(searchConfiguration: InfluxDbSearchConfiguration.() -> Unit)
-
     /**
      * Creates the factory to execute to poll data.
      */
@@ -89,8 +84,6 @@ internal class InfluxDbPollStepSpecificationImpl(
     @field:NotNull
     internal lateinit var query: () -> Query
 
-    internal var flattenOutput = false
-
     @field:NotNull
     internal var pollPeriod: Duration = Duration.ofSeconds(DefaultValues.pollDurationInSeconds)
 
@@ -99,11 +92,6 @@ internal class InfluxDbPollStepSpecificationImpl(
     override fun connect(connection: InfluxDbPollStepConnection.() -> Unit) {
         this.connectionConfiguration.connection()
     }
-
-    override fun search(searchConfiguration: InfluxDbSearchConfiguration.() -> Unit) {
-        searchConfig.searchConfiguration()
-    }
-
     override fun query(queryFactory: () -> Query) {
         query = queryFactory
     }
@@ -158,17 +146,14 @@ internal object DefaultValues {
 /**
  * @property database name of db to search
  * @property collection collection in db (table in sql)
- * @property query [Document] query for search
+ * @property query [QueryResult] query for search
  * @property tieBreaker defines the name, which is the value used to limit the records for the next poll.
  * The tie-breaker must be used as the first sort clause of the query and always be not null. Only the records
  * from the database having a [tieBreaker] greater (or less if sorted descending) than the last polled value will be fetched at next poll.
  */
 @Spec
 data class InfluxDbSearchConfiguration(
-    @field:NotBlank var database: String = "",
-    @field:NotBlank var collection: String = "",
-    @field:NotNull var query: Document = Document(),
-    @field:NotBlank var tieBreaker: String = ""
+    @field:NotBlank var tieBreaker: Instant = Instant.now()
 )
 
     /**

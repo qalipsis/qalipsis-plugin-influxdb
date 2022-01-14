@@ -1,6 +1,9 @@
 package io.qalipsis.plugins.influxdb.poll
 
-import org.influxdb.dto.Query
+import java.text.SimpleDateFormat
+import java.time.Instant
+import org.influxdb.dto.QueryResult
+
 
 /**
  * InfluxDb statement for polling, integrating the ability to be internally modified when a tie-breaker is set.
@@ -13,18 +16,22 @@ import org.influxdb.dto.Query
  * @author Alex Averyanov
  */
 internal class InfluxDbPollStatement(
-    val databaseName: String,
-    val collectionName: String,
-    private val findClause: Bson,
-    private val tieBreakerName: String,
+    override var tieBreaker: Instant?
 ) : PollStatement {
 
-    private var tieBreaker: BsonValue? = null
-
-    private val findClauseAsBson = findClause.toBsonDocument()
-
-    override fun saveTieBreakerValueForNextPoll(query: Query) {
-        tieBreaker = query.toBsonDocument()[tieBreakerName]
+    override fun saveTieBreakerValueForNextPoll(queryResult: QueryResult) {
+        var maxTimeStamp: Instant? = null
+        for(result in queryResult.results) {
+            for (series in result.series) {
+                for(value in series.values) {
+                    val latestTimeStamp = Instant.parse(value[0].toString())
+                    if(latestTimeStamp.isAfter(maxTimeStamp)) {
+                        maxTimeStamp = latestTimeStamp
+                    }
+                }
+            }
+        }
+        tieBreaker = maxTimeStamp
     }
 
     override fun reset() {

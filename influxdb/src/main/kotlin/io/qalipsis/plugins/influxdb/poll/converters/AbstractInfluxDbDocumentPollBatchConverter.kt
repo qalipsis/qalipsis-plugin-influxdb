@@ -4,7 +4,7 @@ import io.qalipsis.api.context.StepOutput
 import io.qalipsis.api.lang.tryAndLogOrNull
 import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.api.steps.datasource.DatasourceObjectConverter
-import io.qalipsis.plugins.influxdb.converters.InfluxDbDefaultConverter
+import io.qalipsis.plugins.influxdb.poll.converters.AbstractInfluxDbDocumentPollConverter
 import io.qalipsis.plugins.influxdb.poll.InfluxDbPollResults
 import io.qalipsis.plugins.influxdb.poll.InfluxDbQueryResult
 import java.util.concurrent.atomic.AtomicLong
@@ -15,10 +15,10 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * @author Alex Averyanov
  */
-internal class InfluxDbDocumentPollBatchConverter(
+internal class AbstractInfluxDbDocumentPollBatchConverter(
     private val databaseName: String,
     private val collectionName: String,
-) : DatasourceObjectConverter<InfluxDbQueryResult, InfluxDbPollResults>, InfluxDbDefaultConverter() {
+) :  AbstractInfluxDbDocumentPollConverter(), DatasourceObjectConverter<InfluxDbQueryResult, InfluxDbPollResults>{
 
     override suspend fun supply(
         offset: AtomicLong,
@@ -28,7 +28,7 @@ internal class InfluxDbDocumentPollBatchConverter(
         tryAndLogOrNull(log) {
             output.send(
                 InfluxDbPollResults(
-                    results = convert(offset, value.documents, databaseName, collectionName),
+                    results = convert(value.queryResult),
                     meters = value.meters
                 )
             )

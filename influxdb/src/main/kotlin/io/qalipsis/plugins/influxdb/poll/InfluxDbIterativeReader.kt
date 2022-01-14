@@ -9,6 +9,9 @@ import io.qalipsis.api.events.EventsLogger
 import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.api.steps.datasource.DatasourceIterativeReader
 import io.qalipsis.api.sync.Latch
+import java.time.Duration
+import java.util.concurrent.atomic.*
+import java.util.function.Consumer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -17,13 +20,13 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.reactivestreams.Subscriber
-import org.reactivestreams.Subscription
-import java.time.Duration
-import java.util.concurrent.atomic.AtomicBoolean
+import org.graalvm.compiler.nodes.Cancellable
 import org.influxdb.InfluxDB
 import org.influxdb.InfluxDBFactory
+import org.influxdb.dto.Query
 import org.influxdb.dto.QueryResult
+import org.reactivestreams.Subscriber
+import org.reactivestreams.Subscription
 
 /**
  * Database reader based upon
@@ -41,12 +44,10 @@ import org.influxdb.dto.QueryResult
  */
 internal class InfluxDbIterativeReader(
     private val coroutineScope: CoroutineScope,
-    private val connectionUrl: String,
-    private val database: String,
-    private val username: String?,
-    private val password: String?,
+    private val connectionConfiguration: InfluxDbPollStepConnectionImpl,
     private val pollStatement: PollStatement,
     private val pollDelay: Duration,
+    private val query: () -> Query,
     private val resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { Channel(Channel.UNLIMITED) },
     private val eventsLogger: EventsLogger?,
     private val meterRegistry: MeterRegistry?
@@ -65,8 +66,6 @@ internal class InfluxDbIterativeReader(
     private lateinit var resultsChannel: Channel<InfluxDbQueryResult>
 
     private lateinit var context: StepStartStopContext
-
-    private var latestId: Any? = null
 
     private var recordsCount: Counter? = null
 
@@ -92,8 +91,9 @@ internal class InfluxDbIterativeReader(
             try {
                 while (running) {
                     poll(client)
-                    if (running)
+                    if (running) {
                         delay(pollDelay.toMillis())
+                    }
                 }
                 log.debug { "Polling job just completed for context $context" }
             } finally {
@@ -125,95 +125,58 @@ internal class InfluxDbIterativeReader(
         }
         resultsChannel.cancel()
         pollStatement.reset()
-        latestId = null
     }
 
     @KTestable
     private fun init() {
-        client = clientBuilder()
-        resultsChannel = resultsChannelFactory()
+        client = InfluxDBFactory.connect(connectionConfiguration.url, connectionConfiguration.username, connectionConfiguration.password)
     }
 
     private suspend fun poll(client: InfluxDB) {
         try {
             val latch = Latch(true)
-            val result: QueryResult
-            val isFirst = AtomicBoolean(true)
+            //val query = Query("SELECT * FROM ${connectionConfiguration.database} WHERE time < ${pollStatement.tieBreaker}")
+            /*val queryResult: QueryResult = client.query(
+                Query("SELECT * FROM ${connectionConfiguration} WHERE time < ${pollStatement.tieBreaker}"))*/
 
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
-            // ??????
 
-            client = InfluxDBFactory.connect(pollStatement.databaseName)
-                .getCollection(pollStatement.collectionName)
-                .find(pollStatement.filter.also { log.trace { "Searching documents with the filter: $it" } })
-                .sort(pollStatement.sorting)
-                .subscribe(object : Subscriber<Document> {
-                    override fun onSubscribe(s: Subscription) {
-                        s.request(Long.MAX_VALUE)
-                    }
-
-                    override fun onNext(document: Document) {
-                        if (isFirst.get()) {
-                            val timeDuration = Duration.ofNanos(System.nanoTime() - requestStart)
-                            eventsLogger?.info(
-                                "$eventPrefix.success",
-                                arrayOf(results.size, timeDuration),
-                                tags = context.toEventTags()
+            this.client.query(query(),  {
+                val duration = Duration.ofNanos(System.nanoTime() - requestStart)
+                coroutineScope.launch {
+                    eventsLogger?.info(
+                        "$eventPrefix.successful-response",
+                        arrayOf(duration, it.results[0].series),
+                        tags = context.toEventTags()
+                    )
+                    successCounter?.increment()
+                    recordsCount?.increment(it.results[0].series.size.toDouble())
+                    if (it.results[0].series.isNotEmpty()) {
+                        log.debug { "Received ${it.results[0].series.size} documents" }
+                        resultsChannel.send(
+                            InfluxDbQueryResult(
+                                queryResult = it,
+                                meters = InfluxDbQueryMeters(it.results[0].series.size, duration)
                             )
-                            timeToResponse?.record(timeDuration)
-                            isFirst.set(false)
-                        }
-
-                        // If a document is received that was already received, it is skipped, as well as all the previous ones.
-                        if (latestId != null && document[DOCUMENT_ID_KEY] == latestId) {
-                            results.clear()
-                        } else {
-                            results += document
-                        }
-                    }
-
-                    override fun onError(error: Throwable) {
-                        val duration = Duration.ofNanos(System.nanoTime() - requestStart)
-                        eventsLogger?.warn(
-                            "$eventPrefix.failure",
-                            arrayOf(error, duration),
-                            tags = context.toEventTags()
                         )
-                        failureCounter?.increment()
-
-                        latch.cancel()
+                        pollStatement.saveTieBreakerValueForNextPoll(it)
+                    } else {
+                        log.debug { "No new document was received" }
                     }
+                    latch.cancel()
+                }
+            },  {
+                val duration = Duration.ofNanos(System.nanoTime() - requestStart)
+                eventsLogger?.warn(
+                    "$eventPrefix.failure",
+                    arrayOf(it, duration),
+                    tags = context.toEventTags()
+                )
+                failureCounter?.increment()
 
-                    override fun onComplete() {
-                        val duration = Duration.ofNanos(System.nanoTime() - requestStart)
-                        coroutineScope.launch {
-                            eventsLogger?.info(
-                                "$eventPrefix.successful-response",
-                                arrayOf(duration, results.size),
-                                tags = context.toEventTags()
-                            )
-                            successCounter?.increment()
-                            recordsCount?.increment(results.size.toDouble())
-                            if (results.isNotEmpty()) {
-                                log.debug { "Received ${results.size} documents" }
-                                resultsChannel.send(
-                                    InfluxDbQueryResult(
-                                        documents = results,
-                                        meters = InfluxDbQueryMeters(results.size, duration)
-                                    )
-                                )
-                                val latestDocument = results.last()
-                                latestId = latestDocument[DOCUMENT_ID_KEY]
-                                log.trace { "Latest received id: $latestId" }
-                                pollStatement.saveTieBreakerValueForNextPoll(latestDocument)
-                            } else {
-                                log.debug { "No new document was received" }
-                            }
-                            latch.cancel()
-                        }
-                    }
-                })
+                latch.cancel()
+            })
             latch.await()
         } catch (e: InterruptedException) {
             // The exception is ignored.
@@ -223,19 +186,12 @@ internal class InfluxDbIterativeReader(
             log.error(e) { e.message }
         }
     }
+    private companion object {
+        @JvmStatic
+        val log = logger()
+    }
 
     override suspend fun hasNext(): Boolean = running
 
     override suspend fun next(): InfluxDbQueryResult = resultsChannel.receive()
-
-    private companion object {
-
-        /**
-         * Key of the value containing the ID of the [Document].
-         */
-        const val DOCUMENT_ID_KEY = "_id"
-
-        @JvmStatic
-        val log = logger()
-    }
 }

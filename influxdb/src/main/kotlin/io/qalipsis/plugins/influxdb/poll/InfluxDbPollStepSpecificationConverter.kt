@@ -12,8 +12,7 @@ import io.qalipsis.api.steps.datasource.DatasourceObjectConverter
 import io.qalipsis.api.steps.datasource.IterativeDatasourceStep
 import io.qalipsis.api.steps.datasource.processors.NoopDatasourceObjectProcessor
 
-import io.qalipsis.plugins.mondodb.converters.InfluxDbDocumentPollBatchConverter
-import io.qalipsis.plugins.mondodb.converters.InfluxDbDocumentPollSingleConverter
+import io.qalipsis.plugins.mondodb.converters.AbstractInfluxDbDocumentPollBatchConverter
 import jakarta.inject.Named
 import kotlinx.coroutines.CoroutineScope
 
@@ -40,11 +39,9 @@ internal class InfluxDbPollStepSpecificationConverter(
 
         val reader = InfluxDbIterativeReader(
             coroutineScope = coroutineScope,
-            connectionUrl = spec.connectionConfiguration.url,
-            database = spec.connectionConfiguration.database,
-            username = spec.connectionConfiguration.username,
-            password = spec.connectionConfiguration.password,
+            connectionConfiguration = spec.connectionConfiguration,
             pollStatement = pollStatement,
+            query = spec.query,
             pollDelay = spec.pollPeriod,
             eventsLogger = supplyIf(spec.monitoringConfiguration.events) { eventsLogger },
             meterRegistry = supplyIf(spec.monitoringConfiguration.meters) { meterRegistry }
@@ -66,26 +63,16 @@ internal class InfluxDbPollStepSpecificationConverter(
     ): PollStatement {
         val search = spec.searchConfig
         return InfluxDbPollStatement(
-            databaseName = search.database,
-            collectionName = search.collection,
-            findClause = search.query,
-            tieBreakerName = search.tieBreaker
+            tieBreaker = search.tieBreaker
         )
     }
 
     private fun buildConverter(
         spec: InfluxDbPollStepSpecificationImpl,
     ): DatasourceObjectConverter<InfluxDbQueryResult, out Any> {
-        return if (spec.flattenOutput) {
-            InfluxDbDocumentPollSingleConverter(
-                spec.searchConfig.database,
-                spec.searchConfig.collection
-            )
-        } else {
-            InfluxDbDocumentPollBatchConverter(
-                spec.searchConfig.database,
-                spec.searchConfig.collection
-            )
-        }
+        return AbstractInfluxDbDocumentPollBatchConverter(
+            spec.searchConfig.database,
+            spec.searchConfig.collection
+        )
     }
 }

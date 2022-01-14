@@ -1,5 +1,7 @@
 package io.qalipsis.plugins.influxdb.poll
 
+import org.influxdb.dto.QueryResult
+
 /**
  * Wrapper for the result of poll in InfluxDb.
  *
@@ -11,11 +13,11 @@ package io.qalipsis.plugins.influxdb.poll
  */
 
 data class InfluxDbPollResults(
-    val results: List<InfluxDbPollRecord>,
+    val results: List<QueryResult.Series>,
     val meters: InfluxDbQueryMeters
-) : Iterable<InfluxDbPollRecord> {
+) : Iterable<QueryResult.Series> {
 
-    override fun iterator(): Iterator<InfluxDbPollRecord> {
+    override fun iterator(): Iterator<QueryResult.Series> {
         return results.iterator()
     }
 }
