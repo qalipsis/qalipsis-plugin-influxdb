@@ -12,8 +12,9 @@ import io.qalipsis.api.steps.datasource.DatasourceObjectConverter
 import io.qalipsis.api.steps.datasource.IterativeDatasourceStep
 import io.qalipsis.api.steps.datasource.processors.NoopDatasourceObjectProcessor
 
-import io.qalipsis.plugins.mondodb.converters.AbstractInfluxDbDocumentPollBatchConverter
+import io.qalipsis.plugins.mondodb.converters.InfluxDbDocumentPollBatchConverter
 import jakarta.inject.Named
+import java.util.*
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -37,11 +38,14 @@ internal class InfluxDbPollStepSpecificationConverter(
         val pollStatement = buildPollStatement(spec)
         val stepId = spec.name
 
+        val properties = Properties()
+        properties.putAll(spec.bindParameters)
         val reader = InfluxDbIterativeReader(
             coroutineScope = coroutineScope,
             connectionConfiguration = spec.connectionConfiguration,
             pollStatement = pollStatement,
             query = spec.query,
+            bindParameters = properties,
             pollDelay = spec.pollPeriod,
             eventsLogger = supplyIf(spec.monitoringConfiguration.events) { eventsLogger },
             meterRegistry = supplyIf(spec.monitoringConfiguration.meters) { meterRegistry }
@@ -61,18 +65,12 @@ internal class InfluxDbPollStepSpecificationConverter(
     fun buildPollStatement(
         spec: InfluxDbPollStepSpecificationImpl
     ): PollStatement {
-        val search = spec.searchConfig
-        return InfluxDbPollStatement(
-            tieBreaker = search.tieBreaker
-        )
+        return InfluxDbPollStatement()
     }
 
     private fun buildConverter(
         spec: InfluxDbPollStepSpecificationImpl,
     ): DatasourceObjectConverter<InfluxDbQueryResult, out Any> {
-        return AbstractInfluxDbDocumentPollBatchConverter(
-            spec.searchConfig.database,
-            spec.searchConfig.collection
-        )
+        return InfluxDbDocumentPollBatchConverter()
     }
 }

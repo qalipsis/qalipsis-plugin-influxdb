@@ -46,7 +46,9 @@ object PollScenario {
             .influxdb().poll {
                 name = "poll.in"
                 connect { InfluxDbPollStepConnectionImpl() }
-                query { Query("SELECT * FROM ${InfluxDbPollStepConnectionImpl().database}} WHERE time < ${InfluxDbSearchConfiguration().tieBreaker}") }
+                query { "SELECT * FROM cpu WHERE idle  = \$idle AND system = \$system" }
+                bindParameters("idle" to 90)
+                bindParameters("system" to 5)
                 pollDelay(Duration.ofSeconds(1))
             }
             .map { it.results }
@@ -57,7 +59,9 @@ object PollScenario {
                     it.influxdb().poll {
                         name = "poll.out"
                         connect { InfluxDbPollStepConnectionImpl() }
-                        query { Query("SELECT * FROM ${InfluxDbPollStepConnectionImpl().database}} WHERE time < ${InfluxDbSearchConfiguration().tieBreaker}") }
+                        query { "SELECT * FROM cpu WHERE idle  = \$idle AND system = \$system" }
+                        bindParameters("idle" to 90)
+                        bindParameters("system" to 5)
                         pollDelay(Duration.ofSeconds(1))
                     }.flatten()
                         .logErrors()

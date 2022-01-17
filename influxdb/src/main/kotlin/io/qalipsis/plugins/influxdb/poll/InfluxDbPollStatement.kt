@@ -1,23 +1,22 @@
 package io.qalipsis.plugins.influxdb.poll
 
-import java.text.SimpleDateFormat
 import java.time.Instant
+import java.util.Properties
+import org.influxdb.dto.BoundParameterQuery
+import org.influxdb.dto.Query
 import org.influxdb.dto.QueryResult
-
 
 /**
  * InfluxDb statement for polling, integrating the ability to be internally modified when a tie-breaker is set.
  *
- * @property databaseName - a name of a database
- * @property collectionName - a name of a collection
- * @property findClause - initial find clause for the first request
- * @property sortClauseValues - a map with field name as a key and ordering as a value
- * @property tieBreakerName - tie breaker name
+ * @property tieBreaker - tie breaker instant
  * @author Alex Averyanov
  */
 internal class InfluxDbPollStatement(
-    override var tieBreaker: Instant?
 ) : PollStatement {
+    override var tieBreaker: Instant?
+        get() = this.tieBreaker
+        set(value) {tieBreaker = value}
 
     override fun saveTieBreakerValueForNextPoll(queryResult: QueryResult) {
         var maxTimeStamp: Instant? = null
@@ -32,6 +31,25 @@ internal class InfluxDbPollStatement(
             }
         }
         tieBreaker = maxTimeStamp
+    }
+
+    private fun bindParamsToBuilder(queryBuilder: BoundParameterQuery.QueryBuilder, bindParameters: Properties) : BoundParameterQuery.QueryBuilder {
+        bindParameters.forEach { k, v ->
+            queryBuilder.bind(k as String?,v)
+        }
+        return queryBuilder
+    }
+
+    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Properties): Query {
+        return if(tieBreaker != null) {
+            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery(queryString + "and time > $tieBreaker")
+            queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
+            queryBuilder.forDatabase(connectionConfiguration.database).create()
+        } else {
+            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery(queryString)
+            queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
+            queryBuilder.forDatabase(connectionConfiguration.database).create()
+        }
     }
 
     override fun reset() {

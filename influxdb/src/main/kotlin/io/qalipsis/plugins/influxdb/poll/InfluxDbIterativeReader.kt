@@ -10,8 +10,7 @@ import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.api.steps.datasource.DatasourceIterativeReader
 import io.qalipsis.api.sync.Latch
 import java.time.Duration
-import java.util.concurrent.atomic.*
-import java.util.function.Consumer
+import java.util.Properties
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -20,13 +19,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.graalvm.compiler.nodes.Cancellable
 import org.influxdb.InfluxDB
 import org.influxdb.InfluxDBFactory
-import org.influxdb.dto.Query
-import org.influxdb.dto.QueryResult
-import org.reactivestreams.Subscriber
-import org.reactivestreams.Subscription
 
 /**
  * Database reader based upon
@@ -47,7 +41,8 @@ internal class InfluxDbIterativeReader(
     private val connectionConfiguration: InfluxDbPollStepConnectionImpl,
     private val pollStatement: PollStatement,
     private val pollDelay: Duration,
-    private val query: () -> Query,
+    private val query: () -> String,
+    private val bindParameters: Properties,
     private val resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { Channel(Channel.UNLIMITED) },
     private val eventsLogger: EventsLogger?,
     private val meterRegistry: MeterRegistry?
@@ -116,12 +111,12 @@ internal class InfluxDbIterativeReader(
         }
         running = false
         runCatching {
-            client.close()
-        }
-        runCatching {
             runBlocking {
                 pollingJob.cancelAndJoin()
             }
+        }
+        runCatching {
+            client.close()
         }
         resultsChannel.cancel()
         pollStatement.reset()
@@ -135,14 +130,10 @@ internal class InfluxDbIterativeReader(
     private suspend fun poll(client: InfluxDB) {
         try {
             val latch = Latch(true)
-            //val query = Query("SELECT * FROM ${connectionConfiguration.database} WHERE time < ${pollStatement.tieBreaker}")
-            /*val queryResult: QueryResult = client.query(
-                Query("SELECT * FROM ${connectionConfiguration} WHERE time < ${pollStatement.tieBreaker}"))*/
-
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
 
-            this.client.query(query(),  {
+            client.query(pollStatement.convertQueryForNextPoll(query.toString(), connectionConfiguration, bindParameters),  {
                 val duration = Duration.ofNanos(System.nanoTime() - requestStart)
                 coroutineScope.launch {
                     eventsLogger?.info(

@@ -1,9 +1,6 @@
 package io.qalipsis.plugins.influxdb.poll
 
 import io.qalipsis.api.annotations.Spec
-import io.qalipsis.api.context.DirectedAcyclicGraphId
-import io.qalipsis.api.context.StepName
-import io.qalipsis.api.retry.RetryPolicy
 import io.qalipsis.api.scenario.StepSpecificationRegistry
 import io.qalipsis.api.steps.AbstractStepSpecification
 import io.qalipsis.api.steps.BroadcastSpecification
@@ -11,16 +8,13 @@ import io.qalipsis.api.steps.LoopableSpecification
 import io.qalipsis.api.steps.SingletonConfiguration
 import io.qalipsis.api.steps.SingletonType
 import io.qalipsis.api.steps.StepMonitoringConfiguration
-import io.qalipsis.api.steps.StepReportingSpecification
 import io.qalipsis.api.steps.StepSpecification
 import io.qalipsis.api.steps.UnicastSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbScenarioSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbStepSpecification
-import org.influxdb.dto.Query
 import java.time.Duration
 import java.time.Instant
 import javax.validation.constraints.NotBlank
-import javax.validation.constraints.NotEmpty
 import javax.validation.constraints.NotNull
 import org.influxdb.dto.QueryResult
 
@@ -33,10 +27,11 @@ interface InfluxDbPollStepSpecification :
      * Configures the connection to the InfluxDB Server.
      */
     fun connect(connection: InfluxDbPollStepConnection.() -> Unit)
+
     /**
      * Creates the factory to execute to poll data.
      */
-    fun query(queryFactory: () -> Query)
+    fun query(queryFactory: () -> String)
 
     /**
      * Parameters to bind to the query.
@@ -59,6 +54,9 @@ interface InfluxDbPollStepSpecification :
 
 }
 
+/**
+ * Interface to establish a connection with InfluxDb
+ */
 interface InfluxDbPollStepConnection {
 
     fun server(url: String, database: String)
@@ -82,17 +80,17 @@ internal class InfluxDbPollStepSpecificationImpl(
     val monitoringConfiguration = StepMonitoringConfiguration()
 
     @field:NotNull
-    internal lateinit var query: () -> Query
+    internal lateinit var query: () -> String
 
     @field:NotNull
-    internal var pollPeriod: Duration = Duration.ofSeconds(DefaultValues.pollDurationInSeconds)
+    internal var pollPeriod: Duration = Duration.ofSeconds(10L)
 
     internal val bindParameters: MutableMap<@NotBlank String, Any> = mutableMapOf()
 
     override fun connect(connection: InfluxDbPollStepConnection.() -> Unit) {
         this.connectionConfiguration.connection()
     }
-    override fun query(queryFactory: () -> Query) {
+    override fun query(queryFactory: () -> String) {
         query = queryFactory
     }
 
@@ -137,10 +135,6 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
     override fun enableGzip() {
         this.gzipEnabled = true
     }
-}
-
-internal object DefaultValues {
-    const val pollDurationInSeconds = 10L
 }
 
 /**

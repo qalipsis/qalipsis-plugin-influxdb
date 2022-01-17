@@ -4,10 +4,10 @@ import io.qalipsis.api.context.StepOutput
 import io.qalipsis.api.lang.tryAndLogOrNull
 import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.api.steps.datasource.DatasourceObjectConverter
-import io.qalipsis.plugins.influxdb.poll.converters.AbstractInfluxDbDocumentPollConverter
 import io.qalipsis.plugins.influxdb.poll.InfluxDbPollResults
 import io.qalipsis.plugins.influxdb.poll.InfluxDbQueryResult
 import java.util.concurrent.atomic.AtomicLong
+import org.influxdb.dto.QueryResult
 
 /**
  * Implementation of [DatasourceObjectConverter], that reads a batch of InfluxDb documents and forwards it
@@ -15,11 +15,12 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * @author Alex Averyanov
  */
-internal class AbstractInfluxDbDocumentPollBatchConverter(
-    private val databaseName: String,
-    private val collectionName: String,
-) :  AbstractInfluxDbDocumentPollConverter(), DatasourceObjectConverter<InfluxDbQueryResult, InfluxDbPollResults>{
+internal class InfluxDbDocumentPollBatchConverter(
+) :  DatasourceObjectConverter<InfluxDbQueryResult, InfluxDbPollResults>{
 
+    private fun convert(queries: QueryResult): List<QueryResult.Series> {
+        return queries.results[0].series
+    }
     override suspend fun supply(
         offset: AtomicLong,
         value: InfluxDbQueryResult,
