@@ -1,7 +1,7 @@
 package io.qalipsis.plugins.influxdb.poll
 
 import java.time.Instant
-import java.util.Properties
+import javax.validation.constraints.NotBlank
 import org.influxdb.dto.Query
 import org.influxdb.dto.QueryResult
 
@@ -20,7 +20,7 @@ internal interface PollStatement {
     /**
      * Changes the query following the first when the tie-breaker is already known
      */
-    fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Properties): Query
+    fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: MutableMap<@NotBlank String, Any>): Query
 
     /**
      * Resets the instance into the initial state to be ready for a new poll sequence starting from scratch.

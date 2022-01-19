@@ -42,10 +42,11 @@ internal class InfluxDbPollStepSpecificationConverter(
         properties.putAll(spec.bindParameters)
         val reader = InfluxDbIterativeReader(
             coroutineScope = coroutineScope,
+            clientBuilder = spec.client,
             connectionConfiguration = spec.connectionConfiguration,
             pollStatement = pollStatement,
             query = spec.query,
-            bindParameters = properties,
+            bindParameters = spec.bindParameters,
             pollDelay = spec.pollPeriod,
             eventsLogger = supplyIf(spec.monitoringConfiguration.events) { eventsLogger },
             meterRegistry = supplyIf(spec.monitoringConfiguration.meters) { meterRegistry }

@@ -16,12 +16,19 @@ import java.time.Duration
 import java.time.Instant
 import javax.validation.constraints.NotBlank
 import javax.validation.constraints.NotNull
+import org.influxdb.InfluxDB
+import org.influxdb.InfluxDBFactory
 import org.influxdb.dto.QueryResult
 
 interface InfluxDbPollStepSpecification :
     StepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     InfluxdbStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     LoopableSpecification, UnicastSpecification, BroadcastSpecification {
+
+    /**
+     * Configures the connection to the InfluxDB Server.
+     */
+    fun connectBuilder(connection: () -> InfluxDB)
 
     /**
      * Configures the connection to the InfluxDB Server.
@@ -73,6 +80,10 @@ internal class InfluxDbPollStepSpecificationImpl(
 
     internal var searchConfig = InfluxDbSearchConfiguration()
 
+    internal var client: (() -> InfluxDB) = { InfluxDBFactory.connect(connectionConfiguration.url,
+        connectionConfiguration.username, connectionConfiguration.password)
+    }
+
     override val singletonConfiguration: SingletonConfiguration = SingletonConfiguration(SingletonType.UNICAST)
 
     val connectionConfiguration = InfluxDbPollStepConnectionImpl()
@@ -86,6 +97,10 @@ internal class InfluxDbPollStepSpecificationImpl(
     internal var pollPeriod: Duration = Duration.ofSeconds(10L)
 
     internal val bindParameters: MutableMap<@NotBlank String, Any> = mutableMapOf()
+
+    override fun connectBuilder(client: () -> InfluxDB) {
+        this.client = client
+    }
 
     override fun connect(connection: InfluxDbPollStepConnection.() -> Unit) {
         this.connectionConfiguration.connection()

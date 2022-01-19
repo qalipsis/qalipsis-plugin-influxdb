@@ -10,7 +10,7 @@ import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.api.steps.datasource.DatasourceIterativeReader
 import io.qalipsis.api.sync.Latch
 import java.time.Duration
-import java.util.Properties
+import javax.validation.constraints.NotBlank
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -20,12 +20,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.influxdb.InfluxDB
-import org.influxdb.InfluxDBFactory
-
 /**
  * Database reader based upon
  *
- * @property clientFactory supplier for the InfluxDb client
+ * @property clientBuilder supplier for the InfluxDb client
  * @property pollStatement statement to execute
  * @property pollDelay duration between the end of a poll and the start of the next one
  * @property resultsChannelFactory factory to create the channel containing the received results sets
@@ -39,10 +37,11 @@ import org.influxdb.InfluxDBFactory
 internal class InfluxDbIterativeReader(
     private val coroutineScope: CoroutineScope,
     private val connectionConfiguration: InfluxDbPollStepConnectionImpl,
+    private val clientBuilder: () -> InfluxDB,
     private val pollStatement: PollStatement,
     private val pollDelay: Duration,
     private val query: () -> String,
-    private val bindParameters: Properties,
+    private val bindParameters: MutableMap<@NotBlank String, Any>,
     private val resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { Channel(Channel.UNLIMITED) },
     private val eventsLogger: EventsLogger?,
     private val meterRegistry: MeterRegistry?
@@ -124,7 +123,8 @@ internal class InfluxDbIterativeReader(
 
     @KTestable
     private fun init() {
-        client = InfluxDBFactory.connect(connectionConfiguration.url, connectionConfiguration.username, connectionConfiguration.password)
+        resultsChannel = resultsChannelFactory()
+        client = clientBuilder()
     }
 
     private suspend fun poll(client: InfluxDB) {

@@ -33,7 +33,7 @@ object PollScenario {
     @JvmStatic
     private val log = logger()
 
-    @Scenario
+  /*  @Scenario
     fun pollData() {
         scenario("influxdb-poll") {
             minionsCount = minions
@@ -83,5 +83,5 @@ object PollScenario {
             .onEach { receivedMessages.add(it) }
             .onEach { println(it) }
     }
-
+*/
 }

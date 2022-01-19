@@ -1,7 +1,7 @@
 package io.qalipsis.plugins.influxdb.poll
 
 import java.time.Instant
-import java.util.Properties
+import javax.validation.constraints.NotBlank
 import org.influxdb.dto.BoundParameterQuery
 import org.influxdb.dto.Query
 import org.influxdb.dto.QueryResult
@@ -12,8 +12,7 @@ import org.influxdb.dto.QueryResult
  * @property tieBreaker - tie breaker instant
  * @author Alex Averyanov
  */
-internal class InfluxDbPollStatement(
-) : PollStatement {
+internal class InfluxDbPollStatement: PollStatement {
     override var tieBreaker: Instant?
         get() = this.tieBreaker
         set(value) {tieBreaker = value}
@@ -33,16 +32,20 @@ internal class InfluxDbPollStatement(
         tieBreaker = maxTimeStamp
     }
 
-    private fun bindParamsToBuilder(queryBuilder: BoundParameterQuery.QueryBuilder, bindParameters: Properties) : BoundParameterQuery.QueryBuilder {
+    private fun bindParamsToBuilder(queryBuilder: BoundParameterQuery.QueryBuilder, bindParameters: MutableMap<@NotBlank String, Any>) : BoundParameterQuery.QueryBuilder {
         bindParameters.forEach { k, v ->
-            queryBuilder.bind(k as String?,v)
+            queryBuilder.bind(k as String, v)
         }
         return queryBuilder
     }
 
-    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Properties): Query {
+    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: MutableMap<@NotBlank String, Any>): Query {
+        val queryStringBuilder = StringBuilder()
+        if(bindParameters.isEmpty())
+            queryStringBuilder.append(" WHERE ")
+
         return if(tieBreaker != null) {
-            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery(queryString + "and time > $tieBreaker")
+            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery("$queryStringBuilder and time >= $tieBreaker")
             queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
             queryBuilder.forDatabase(connectionConfiguration.database).create()
         } else {
