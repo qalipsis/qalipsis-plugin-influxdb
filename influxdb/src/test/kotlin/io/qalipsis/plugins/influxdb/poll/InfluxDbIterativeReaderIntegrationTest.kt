@@ -12,11 +12,12 @@ import java.time.Duration
 import java.util.concurrent.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
-import org.influxdb.InfluxDB
+import org.influxdb.BatchOptions
 import org.influxdb.InfluxDB.ConsistencyLevel
 import org.influxdb.InfluxDBFactory
 import org.influxdb.dto.BatchPoints
 import org.influxdb.dto.Point
+import org.influxdb.dto.Query
 import org.influxdb.dto.QueryResult
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions
@@ -30,8 +31,6 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     private val eventsLogger = relaxedMockk<EventsLogger>()
 
     private lateinit var reader: InfluxDbIterativeReader
-
-    private val clientBuilder: () -> InfluxDB = { client }
 
     @RelaxedMockK
     private lateinit var resultsChannel: Channel<InfluxDbQueryResult>
@@ -48,11 +47,28 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     @Test
     @Timeout(20)
     fun `should save data and poll client`() = runBlocking {
-        val clientBuilder: (() -> InfluxDB) =
-            {
-                InfluxDBFactory.connect(connectionConfig.url,
-                    connectionConfig.username, connectionConfig.password)
-            }
+
+        client.query( Query("CREATE DATABASE " + connectionConfig.database))
+        client.setDatabase(connectionConfig.database);
+
+        val retentionPolicyName = "one_day_only"
+        client.query(
+            Query(
+                "CREATE RETENTION POLICY " + retentionPolicyName
+                        + " ON " + connectionConfig.database + " DURATION 1d REPLICATION 1 DEFAULT"
+            )
+        )
+        client.setRetentionPolicy(retentionPolicyName) // (3)
+
+
+        client.enableBatch(
+            BatchOptions.DEFAULTS
+                .threadFactory { runnable: Runnable? ->
+                    val thread = Thread(runnable)
+                    thread.isDaemon = true
+                    thread
+                }
+        )
         val batchPoints = BatchPoints
             .database(connectionConfig.database)
             .tag("async", "true")
@@ -74,11 +90,11 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
 
         batchPoints.point(point1);
         batchPoints.point(point2);
-        clientBuilder().write(batchPoints);
+        client.write(batchPoints);
 
-        val pollStatement = InfluxDbPollStatement()
+        val pollStatement = InfluxDbPollStatement("time")
         reader = InfluxDbIterativeReader(
-            clientBuilder = clientBuilder,
+            clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
             query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
             bindParameters = mutableMapOf("idle" to 90),
             pollStatement = pollStatement,

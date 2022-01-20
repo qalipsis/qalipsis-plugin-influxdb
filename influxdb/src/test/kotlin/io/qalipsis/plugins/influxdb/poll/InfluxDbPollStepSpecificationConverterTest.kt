@@ -120,7 +120,8 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         spec.apply {
             this.name = "my-step"
             connect{
-                InfluxDbPollStepConnectionImpl()
+                server("http://127.0.0.1:8086","DB")
+                basic("user","pass")
             }
             query {
                 "SELECT * FROM cpu WHERE idle  = \$idle AND system = \$system"

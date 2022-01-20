@@ -17,9 +17,10 @@ internal class InfluxDbPollStatementTest {
     @Test
     fun `should not have tie-breaker before the first request`() {
         // given
-        val pollStatement = InfluxDbPollStatement()
+        val pollStatement = InfluxDbPollStatement("time")
 
         // when only initialization happens
+
 
         // then
         assertThat(pollStatement).prop("tieBreaker").isNull()
@@ -29,7 +30,7 @@ internal class InfluxDbPollStatementTest {
     fun `should reset() clean up tie-breaker`() {
         // given
         val pollStatement = spyk(
-            InfluxDbPollStatement()
+            InfluxDbPollStatement("time")
         )
 
         // when (minor check)
@@ -46,10 +47,10 @@ internal class InfluxDbPollStatementTest {
     }
 
     @Test
-    fun `should return proper bson for sorting clause`() {
+    fun `should return proper query`() {
         // given
         val pollStatement = spyk(
-            InfluxDbPollStatement()
+            InfluxDbPollStatement("time")
         )
         // then
         val actualQuery = pollStatement.convertQueryForNextPoll("SELECT * FROM cpu", InfluxDbPollStepConnectionImpl(), mutableMapOf())

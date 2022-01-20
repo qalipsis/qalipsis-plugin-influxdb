@@ -2,6 +2,7 @@ package io.qalipsis.plugins.influxdb.poll
 
 import assertk.assertThat
 import assertk.assertions.isFalse
+import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNotSameAs
 import assertk.assertions.isNull
@@ -27,14 +28,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.time.Duration
 import org.influxdb.InfluxDB
+import org.influxdb.InfluxDBFactory
 
 @WithMockk
 internal class InfluxDbIterativeReaderTest {
-
-    @RelaxedMockK
-    private lateinit var client: InfluxDB
-
-    private val clientBuilder: () -> InfluxDB = { client }
 
     @RelaxedMockK
     private lateinit var resultsChannel: Channel<InfluxDbQueryResult>
@@ -52,7 +49,7 @@ internal class InfluxDbIterativeReaderTest {
     private lateinit var meterRegistry: MeterRegistry
 
     @Test
-    @Timeout(25)
+    //@Timeout(25)
     internal fun `should be restartable`() = runBlocking {
         val connectionConfig  = InfluxDbPollStepConnectionImpl()
 
@@ -64,7 +61,7 @@ internal class InfluxDbIterativeReaderTest {
         val latch = SuspendedCountLatch(1, true)
         val reader = spyk(
             InfluxDbIterativeReader(
-                clientBuilder = clientBuilder,
+                clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
                 query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
                 bindParameters = mutableMapOf("idle" to 90),
                 pollStatement = pollStatement,
@@ -76,7 +73,7 @@ internal class InfluxDbIterativeReaderTest {
                 connectionConfiguration = connectionConfig
             ), recordPrivateCalls = true
         )
-        coEvery { reader["poll"](refEq(client)) } coAnswers { latch.decrement() }
+        coEvery { reader["poll"](any<InfluxDB>()) } coAnswers { latch.decrement() }
 
 
         // when
@@ -96,7 +93,6 @@ internal class InfluxDbIterativeReaderTest {
 
         // when
         reader.stop(relaxedMockk())
-        verify { client.close() }
         verify { resultsChannel.cancel() }
         verify { pollStatement.reset() }
         // then
@@ -110,7 +106,7 @@ internal class InfluxDbIterativeReaderTest {
         verify { resultsChannelFactory() }
         assertThat(reader.hasNext()).isTrue()
         assertThat(reader.getProperty<Job>("pollingJob")).isNotSameAs(pollingJob)
-        assertThat(reader.getProperty<InfluxDB>("client")).isSameAs(client)
+        assertThat(reader.getProperty<InfluxDB>("client")).isInstanceOf(InfluxDB::class)
         assertThat(reader.getProperty<Channel<InfluxDbQueryResult>>("resultsChannel")).isSameAs(resultsChannel)
 
         reader.stop(relaxedMockk())
@@ -128,7 +124,7 @@ internal class InfluxDbIterativeReaderTest {
         // given
         val reader =  spyk(
                 InfluxDbIterativeReader(
-                    clientBuilder = clientBuilder,
+                    clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
                     query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
                     bindParameters = mutableMapOf("idle" to 90),
                     pollStatement = pollStatement,
@@ -158,7 +154,7 @@ internal class InfluxDbIterativeReaderTest {
         connectionConfig.database = "db"
         val reader = spyk(
             InfluxDbIterativeReader(
-                clientBuilder = clientBuilder,
+                clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
                 query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
                 bindParameters = mutableMapOf("idle" to 90),
                 pollStatement = pollStatement,

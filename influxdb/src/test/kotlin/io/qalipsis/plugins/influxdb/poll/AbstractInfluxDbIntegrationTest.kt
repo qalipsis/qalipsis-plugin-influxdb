@@ -26,7 +26,7 @@ internal abstract class AbstractInfluxDbIntegrationTest {
 
     val testDispatcherProvider = TestDispatcherProvider()
 
-    private val pollStatement = InfluxDbPollStatement()
+    private val pollStatement = InfluxDbPollStatement("time")
 
     protected val connectionConfig = InfluxDbPollStepConnectionImpl()
 
@@ -34,10 +34,10 @@ internal abstract class AbstractInfluxDbIntegrationTest {
 
     @BeforeAll
     fun beforeAll() {
-        connectionConfig.password = "pass"
+        connectionConfig.password = "root"
         connectionConfig.url = "http://127.0.0.1:8086"
-        connectionConfig.username = "name"
-        connectionConfig.database = "cpu"
+        connectionConfig.username = "root"
+        connectionConfig.database = "database"
 
         client = InfluxDBFactory.connect(connectionConfig.url,
             connectionConfig.username, connectionConfig.password)
@@ -51,7 +51,7 @@ internal abstract class AbstractInfluxDbIntegrationTest {
     @BeforeEach
     @Timeout(5)
     fun setUp() {
-        val countDownLatch = CountDownLatch(1)
+      /*  val countDownLatch = CountDownLatch(1)
 
         client.query(pollStatement.convertQueryForNextPoll("SELECT * FROM cpu WHERE idle  = \$idle", connectionConfig, bindParameters),  {
             log.debug { "completed" }
@@ -60,7 +60,7 @@ internal abstract class AbstractInfluxDbIntegrationTest {
             log.debug { "Failed" };
         })
 
-        countDownLatch.await()
+        countDownLatch.await()*/
     }
 
     companion object {

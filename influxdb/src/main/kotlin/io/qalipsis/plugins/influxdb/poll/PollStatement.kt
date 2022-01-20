@@ -11,7 +11,7 @@ import org.influxdb.dto.QueryResult
  * @author Alex Averyanov
  */
 internal interface PollStatement {
-     var tieBreaker: Instant?
+     var tieBreaker: Any?
     /**
      * Saves actual tie-breaker value from previous poll. A value will be used to compose next query.
      */
@@ -20,7 +20,7 @@ internal interface PollStatement {
     /**
      * Changes the query following the first when the tie-breaker is already known
      */
-    fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: MutableMap<@NotBlank String, Any>): Query
+    fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>): Query
 
     /**
      * Resets the instance into the initial state to be ready for a new poll sequence starting from scratch.

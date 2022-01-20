@@ -12,8 +12,11 @@ import org.influxdb.dto.QueryResult
  * @property tieBreaker - tie breaker instant
  * @author Alex Averyanov
  */
-internal class InfluxDbPollStatement: PollStatement {
-    override var tieBreaker: Instant?
+internal class InfluxDbPollStatement(
+    val tieBreakerName: String
+): PollStatement {
+
+    override var tieBreaker: Any?
         get() = this.tieBreaker
         set(value) {tieBreaker = value}
 
@@ -32,20 +35,21 @@ internal class InfluxDbPollStatement: PollStatement {
         tieBreaker = maxTimeStamp
     }
 
-    private fun bindParamsToBuilder(queryBuilder: BoundParameterQuery.QueryBuilder, bindParameters: MutableMap<@NotBlank String, Any>) : BoundParameterQuery.QueryBuilder {
-        bindParameters.forEach { k, v ->
-            queryBuilder.bind(k as String, v)
+    private fun bindParamsToBuilder(queryBuilder: BoundParameterQuery.QueryBuilder, bindParameters: Map<@NotBlank String, Any>) : BoundParameterQuery.QueryBuilder {
+        bindParameters.forEach { (k, v) ->
+            queryBuilder.bind(k , v)
         }
         return queryBuilder
     }
 
-    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: MutableMap<@NotBlank String, Any>): Query {
+    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>): Query {
         val queryStringBuilder = StringBuilder()
-        if(bindParameters.isEmpty())
+        if(bindParameters.isEmpty()) {
             queryStringBuilder.append(" WHERE ")
+        }
 
         return if(tieBreaker != null) {
-            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery("$queryStringBuilder and time >= $tieBreaker")
+            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery("$queryStringBuilder and $tieBreakerName >= $tieBreaker")
             queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
             queryBuilder.forDatabase(connectionConfiguration.database).create()
         } else {
@@ -56,6 +60,6 @@ internal class InfluxDbPollStatement: PollStatement {
     }
 
     override fun reset() {
-        tieBreaker = null
+        tieBreaker = null.toString()
     }
 }

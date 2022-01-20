@@ -20,10 +20,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.influxdb.InfluxDB
+
 /**
  * Database reader based upon
  *
- * @property clientBuilder supplier for the InfluxDb client
  * @property pollStatement statement to execute
  * @property pollDelay duration between the end of a poll and the start of the next one
  * @property resultsChannelFactory factory to create the channel containing the received results sets
@@ -37,11 +37,11 @@ import org.influxdb.InfluxDB
 internal class InfluxDbIterativeReader(
     private val coroutineScope: CoroutineScope,
     private val connectionConfiguration: InfluxDbPollStepConnectionImpl,
-    private val clientBuilder: () -> InfluxDB,
+    private val clientFactory: () -> InfluxDB,
     private val pollStatement: PollStatement,
     private val pollDelay: Duration,
     private val query: () -> String,
-    private val bindParameters: MutableMap<@NotBlank String, Any>,
+    private val bindParameters: Map<@NotBlank String, Any>,
     private val resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { Channel(Channel.UNLIMITED) },
     private val eventsLogger: EventsLogger?,
     private val meterRegistry: MeterRegistry?
@@ -124,7 +124,7 @@ internal class InfluxDbIterativeReader(
     @KTestable
     private fun init() {
         resultsChannel = resultsChannelFactory()
-        client = clientBuilder()
+        client = clientFactory()
     }
 
     private suspend fun poll(client: InfluxDB) {
