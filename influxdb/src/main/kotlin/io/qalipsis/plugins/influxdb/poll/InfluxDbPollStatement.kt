@@ -16,9 +16,7 @@ internal class InfluxDbPollStatement(
     val tieBreakerName: String
 ): PollStatement {
 
-    override var tieBreaker: Any?
-        get() = this.tieBreaker
-        set(value) {tieBreaker = value}
+     private var tieBreaker: Any? = null
 
     override fun saveTieBreakerValueForNextPoll(queryResult: QueryResult) {
         var maxTimeStamp: Instant? = null
@@ -26,7 +24,9 @@ internal class InfluxDbPollStatement(
             for (series in result.series) {
                 for(value in series.values) {
                     val latestTimeStamp = Instant.parse(value[0].toString())
-                    if(latestTimeStamp.isAfter(maxTimeStamp)) {
+                    if(maxTimeStamp == null) {
+                        maxTimeStamp = latestTimeStamp
+                    } else if(latestTimeStamp.isAfter(maxTimeStamp)) {
                         maxTimeStamp = latestTimeStamp
                     }
                 }
@@ -43,23 +43,25 @@ internal class InfluxDbPollStatement(
     }
 
     override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>): Query {
-        val queryStringBuilder = StringBuilder()
+        val queryStringBuilder = StringBuilder(queryString)
         if(bindParameters.isEmpty()) {
             queryStringBuilder.append(" WHERE ")
         }
 
         return if(tieBreaker != null) {
-            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery("$queryStringBuilder and $tieBreakerName >= $tieBreaker")
+            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery("$queryStringBuilder AND $tieBreakerName >= '$tieBreaker'")
+            queryBuilder.forDatabase(connectionConfiguration.database)
             queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
-            queryBuilder.forDatabase(connectionConfiguration.database).create()
+            queryBuilder.create()
         } else {
             var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery(queryString)
+            queryBuilder.forDatabase(connectionConfiguration.database)
             queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
-            queryBuilder.forDatabase(connectionConfiguration.database).create()
+            queryBuilder.create()
         }
     }
 
     override fun reset() {
-        tieBreaker = null.toString()
+        tieBreaker = null
     }
 }

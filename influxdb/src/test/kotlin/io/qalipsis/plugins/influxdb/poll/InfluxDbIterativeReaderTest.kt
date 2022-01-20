@@ -62,7 +62,7 @@ internal class InfluxDbIterativeReaderTest {
         val reader = spyk(
             InfluxDbIterativeReader(
                 clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
-                query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
+                query =  "SELECT * FROM cpu WHERE idle  = \$idle" ,
                 bindParameters = mutableMapOf("idle" to 90),
                 pollStatement = pollStatement,
                 pollDelay = Duration.ofMillis(300),
@@ -125,7 +125,7 @@ internal class InfluxDbIterativeReaderTest {
         val reader =  spyk(
                 InfluxDbIterativeReader(
                     clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
-                    query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
+                    query =  "SELECT * FROM cpu WHERE idle  = \$idle" ,
                     bindParameters = mutableMapOf("idle" to 90),
                     pollStatement = pollStatement,
                     pollDelay = Duration.ofMillis(300),
@@ -155,7 +155,7 @@ internal class InfluxDbIterativeReaderTest {
         val reader = spyk(
             InfluxDbIterativeReader(
                 clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
-                query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
+                query =  "SELECT * FROM cpu WHERE idle  = \$idle",
                 bindParameters = mutableMapOf("idle" to 90),
                 pollStatement = pollStatement,
                 pollDelay = Duration.ofMillis(300),

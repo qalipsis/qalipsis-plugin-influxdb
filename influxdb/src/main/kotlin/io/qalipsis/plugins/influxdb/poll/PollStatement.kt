@@ -11,7 +11,6 @@ import org.influxdb.dto.QueryResult
  * @author Alex Averyanov
  */
 internal interface PollStatement {
-     var tieBreaker: Any?
     /**
      * Saves actual tie-breaker value from previous poll. A value will be used to compose next query.
      */

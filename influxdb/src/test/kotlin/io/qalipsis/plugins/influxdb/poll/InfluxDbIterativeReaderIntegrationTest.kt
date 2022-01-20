@@ -3,6 +3,7 @@ package io.qalipsis.plugins.influxdb.poll
 
 import assertk.all
 import assertk.assertThat
+import io.aerisconsulting.catadioptre.coInvokeInvisible
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.impl.annotations.SpyK
 import io.qalipsis.api.events.EventsLogger
@@ -38,14 +39,8 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     @SpyK
     private var resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { resultsChannel }
 
-    @AfterEach
-    @Timeout(5)
-    fun afterEach() {
-        reader.stop(relaxedMockk())
-    }
-
     @Test
-    @Timeout(20)
+    //@Timeout(20)
     fun `should save data and poll client`() = runBlocking {
 
         client.query( Query("CREATE DATABASE " + connectionConfig.database))
@@ -72,7 +67,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         val batchPoints = BatchPoints
             .database(connectionConfig.database)
             .tag("async", "true")
-            .retentionPolicy("aRetentionPolicy")
+            .retentionPolicy(retentionPolicyName)
             .consistency(ConsistencyLevel.ALL)
             .build()
         val point1: Point = Point.measurement("cpu")
@@ -91,12 +86,12 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         batchPoints.point(point1);
         batchPoints.point(point2);
         client.write(batchPoints);
-
+        val queryString = "SELECT * FROM cpu WHERE idle  = \$idle"
         val pollStatement = InfluxDbPollStatement("time")
         reader = InfluxDbIterativeReader(
-            clientFactory = { InfluxDBFactory.connect(connectionConfig.url, connectionConfig.username, connectionConfig.password) },
-            query = { "SELECT * FROM cpu WHERE idle  = \$idle" },
-            bindParameters = mutableMapOf("idle" to 90),
+            clientFactory = { client },
+            query = queryString,
+            bindParameters = mutableMapOf("idle" to 90L),
             pollStatement = pollStatement,
             pollDelay = Duration.ofMillis(300),
             resultsChannelFactory = resultsChannelFactory,
@@ -107,10 +102,12 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         )
 
         reader.start(relaxedMockk())
+        reader.coInvokeInvisible<Unit>("poll", client)
+        reader.coInvokeInvisible<Unit>("poll", client)
 
         Assertions.assertTrue(reader.hasNext())
 
-        val received: QueryResult = reader.next().queryResult
+        val received = reader.next().queryResult
 
         assertThat(received).all {
            /* hasSize(39)

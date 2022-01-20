@@ -32,7 +32,7 @@ interface InfluxDbPollStepSpecification :
     /**
      * Creates the factory to execute to poll data.
      */
-    fun query(queryFactory: () -> String)
+    fun query(queryFactory: String)
 
     /**
      * Parameters to bind to the query.
@@ -81,7 +81,7 @@ internal class InfluxDbPollStepSpecificationImpl(
     val monitoringConfiguration = StepMonitoringConfiguration()
 
     @field:NotNull
-    internal lateinit var query: () -> String
+    internal lateinit var query: String
 
     @field:NotNull
     internal var pollPeriod: Duration = Duration.ofSeconds(10L)
@@ -91,7 +91,7 @@ internal class InfluxDbPollStepSpecificationImpl(
     override fun connect(connection: InfluxDbPollStepConnection.() -> Unit) {
         this.connectionConfiguration.connection()
     }
-    override fun query(queryFactory: () -> String) {
+    override fun query(queryFactory: String) {
         query = queryFactory
     }
 

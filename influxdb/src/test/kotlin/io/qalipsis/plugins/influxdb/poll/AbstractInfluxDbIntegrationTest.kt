@@ -24,20 +24,14 @@ internal abstract class AbstractInfluxDbIntegrationTest {
 
     lateinit var client: InfluxDB
 
-    val testDispatcherProvider = TestDispatcherProvider()
-
-    private val pollStatement = InfluxDbPollStatement("time")
-
     protected val connectionConfig = InfluxDbPollStepConnectionImpl()
-
-    private val bindParameters = mutableMapOf<String, Any>("idle" to 90)
 
     @BeforeAll
     fun beforeAll() {
-        connectionConfig.password = "root"
-        connectionConfig.url = "http://127.0.0.1:8086"
-        connectionConfig.username = "root"
-        connectionConfig.database = "database"
+        connectionConfig.password = "password"
+        connectionConfig.url = influxDBContainer.url
+        connectionConfig.username = "admin"
+        connectionConfig.database = "myDB"
 
         client = InfluxDBFactory.connect(connectionConfig.url,
             connectionConfig.username, connectionConfig.password)
@@ -48,28 +42,13 @@ internal abstract class AbstractInfluxDbIntegrationTest {
         client.close()
     }
 
-    @BeforeEach
-    @Timeout(5)
-    fun setUp() {
-      /*  val countDownLatch = CountDownLatch(1)
-
-        client.query(pollStatement.convertQueryForNextPoll("SELECT * FROM cpu WHERE idle  = \$idle", connectionConfig, bindParameters),  {
-            log.debug { "completed" }
-            countDownLatch.countDown()
-        }, {
-            log.debug { "Failed" };
-        })
-
-        countDownLatch.await()*/
-    }
-
     companion object {
 
         @Container
         @JvmStatic
         val influxDBContainer = InfluxDBContainer<Nothing>(DockerImageName.parse("influxdb:1.8"))
             .apply {
-                waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(30)))
+                waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(60)))
                 withCreateContainerCmdModifier { cmd ->
                     cmd.hostConfig!!.withMemory(512 * 1024.0.pow(2).toLong()).withCpuCount(2)
                 }

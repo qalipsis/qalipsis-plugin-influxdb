@@ -40,7 +40,7 @@ internal class InfluxDbIterativeReader(
     private val clientFactory: () -> InfluxDB,
     private val pollStatement: PollStatement,
     private val pollDelay: Duration,
-    private val query: () -> String,
+    private val query: String,
     private val bindParameters: Map<@NotBlank String, Any>,
     private val resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { Channel(Channel.UNLIMITED) },
     private val eventsLogger: EventsLogger?,
@@ -184,5 +184,5 @@ internal class InfluxDbIterativeReader(
 
     override suspend fun hasNext(): Boolean = running
 
-    override suspend fun next(): InfluxDbQueryResult = resultsChannel.receive()
+    override suspend fun next(): InfluxDbQueryResult = resultsChannel!!.receive()
 }
