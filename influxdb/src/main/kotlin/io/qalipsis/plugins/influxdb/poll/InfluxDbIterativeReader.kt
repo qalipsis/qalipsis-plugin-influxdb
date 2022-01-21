@@ -122,7 +122,7 @@ internal class InfluxDbIterativeReader(
     }
 
     @KTestable
-    private fun init() {
+    fun init() {
         resultsChannel = resultsChannelFactory()
         client = clientFactory()
     }
@@ -143,7 +143,7 @@ internal class InfluxDbIterativeReader(
                     )
                     successCounter?.increment()
                     recordsCount?.increment(it.results[0].series.size.toDouble())
-                    if (it.results[0].series.isNotEmpty()) {
+                    if (it.results[0].series != null) {
                         log.debug { "Received ${it.results[0].series.size} documents" }
                         resultsChannel.send(
                             InfluxDbQueryResult(
