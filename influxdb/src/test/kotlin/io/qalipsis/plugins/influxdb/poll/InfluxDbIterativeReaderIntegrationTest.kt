@@ -6,6 +6,7 @@ import assertk.assertThat
 import io.aerisconsulting.catadioptre.coInvokeInvisible
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.impl.annotations.SpyK
+import io.qalipsis.api.context.StepStartStopContext
 import io.qalipsis.api.events.EventsLogger
 import io.qalipsis.test.mockk.WithMockk
 import io.qalipsis.test.mockk.relaxedMockk
@@ -43,8 +44,8 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     //@Timeout(20)
     fun `should save data and poll client`() = runBlocking {
 
-        client.query( Query("CREATE DATABASE " + connectionConfig.database))
-        client.setDatabase(connectionConfig.database);
+        /*client.query( Query("CREATE DATABASE " + connectionConfig.database))
+        client.setDatabase(connectionConfig.database);*/
 
         val retentionPolicyName = "one_day_only"
         client.query(
@@ -64,6 +65,22 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
                     thread
                 }
         )
+        val queryString = "SELECT * FROM cpu WHERE idle  = \$idle"
+        val pollStatement = InfluxDbPollStatement("time")
+        reader = InfluxDbIterativeReader(
+            clientFactory = { client },
+            query = queryString,
+            bindParameters = mutableMapOf("idle" to 90L),
+            pollStatement = pollStatement,
+            pollDelay = Duration.ofMillis(300),
+            resultsChannelFactory = resultsChannelFactory,
+            coroutineScope = this,
+            eventsLogger = null,
+            meterRegistry = null,
+            connectionConfiguration = connectionConfig
+        )
+
+        reader.start(relaxedMockk())
         val batchPoints = BatchPoints
             .database(connectionConfig.database)
             .tag("async", "true")
@@ -84,32 +101,18 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
             .build()
 
         batchPoints.point(point1);
-        batchPoints.point(point2);
-        client.write(batchPoints);
-        val queryString = "SELECT * FROM cpu WHERE idle  = \$idle"
-        val pollStatement = InfluxDbPollStatement("time")
-        reader = InfluxDbIterativeReader(
-            clientFactory = { client },
-            query = queryString,
-            bindParameters = mutableMapOf("idle" to 90L),
-            pollStatement = pollStatement,
-            pollDelay = Duration.ofMillis(300),
-            resultsChannelFactory = resultsChannelFactory,
-            coroutineScope = this,
-            eventsLogger = null,
-            meterRegistry = null,
-            connectionConfiguration = connectionConfig
-        )
-
-        reader.start(relaxedMockk())
+        //client.write(batchPoints);
+        client.write(point1);
         reader.coInvokeInvisible<Unit>("poll", client)
-        reader.coInvokeInvisible<Unit>("poll", client)
+        //reader.coInvokeInvisible<Unit>("poll", client)
 
+
+        client.write(point2);
         Assertions.assertTrue(reader.hasNext())
 
-        val received = reader.next().queryResult
-
-        assertThat(received).all {
+        val received1 = reader.next()
+        val received2 = reader.next()
+        //assertThat(received).all {
            /* hasSize(39)
             index(0).all {
                 key("device").isEqualTo("Car #1")
@@ -131,7 +134,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
                 key("event").isEqualTo("Stop")
                 key("time").isEqualTo(BsonTimestamp(1603198728000))
             }*/
-        }
+      //  }
 
         reader.stop(relaxedMockk())
     }

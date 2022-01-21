@@ -15,6 +15,7 @@ import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import org.influxdb.InfluxDB
 import org.influxdb.InfluxDBFactory
+import org.influxdb.dto.Query
 import org.testcontainers.containers.InfluxDBContainer
 import kotlin.math.pow
 
@@ -33,8 +34,12 @@ internal abstract class AbstractInfluxDbIntegrationTest {
         connectionConfig.username = "admin"
         connectionConfig.database = "myDB"
 
+        //client = influxDBContainer.newInfluxDB
         client = InfluxDBFactory.connect(connectionConfig.url,
             connectionConfig.username, connectionConfig.password)
+        client.query( Query("CREATE DATABASE " + connectionConfig.database))
+        client.setDatabase(connectionConfig.database)
+
     }
 
     @AfterAll
