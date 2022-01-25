@@ -36,7 +36,7 @@ dependencies {
 
     compileOnly("io.micronaut:micronaut-runtime")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
-    api("org.influxdb:influxdb-java:$influxdbVersion")
+    api("com.influxdb:influxdb-client-java:4.1.0")
 
     api("io.qalipsis:api-common:${project.version}")
     api("io.qalipsis:api-dsl:${project.version}")

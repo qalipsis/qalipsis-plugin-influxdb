@@ -1,5 +1,8 @@
 package io.qalipsis.plugins.influxdb.poll
 
+import com.influxdb.Cancellable
+import com.influxdb.client.InfluxDBClient
+import com.influxdb.query.FluxRecord
 import io.aerisconsulting.catadioptre.KTestable
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
@@ -19,7 +22,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.influxdb.InfluxDB
 
 /**
  * Database reader based upon
@@ -37,7 +39,7 @@ import org.influxdb.InfluxDB
 internal class InfluxDbIterativeReader(
     private val coroutineScope: CoroutineScope,
     private val connectionConfiguration: InfluxDbPollStepConnectionImpl,
-    private val clientFactory: () -> InfluxDB,
+    private val clientFactory: () -> InfluxDBClient,
     private val pollStatement: PollStatement,
     private val pollDelay: Duration,
     private val query: String,
@@ -53,7 +55,7 @@ internal class InfluxDbIterativeReader(
 
     private var running = false
 
-    private lateinit var client: InfluxDB
+    private lateinit var client: InfluxDBClient
 
     private lateinit var pollingJob: Job
 
@@ -127,37 +129,40 @@ internal class InfluxDbIterativeReader(
         client = clientFactory()
     }
 
-    private suspend fun poll(client: InfluxDB) {
+    private suspend fun poll(client: InfluxDBClient) {
         try {
             val latch = Latch(true)
+            var fetchedRecords: Int = 0
+            var timeToResult: Duration = Duration.ofNanos(0L)
+            val listOfFlux = ArrayList<FluxRecord>()
+
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
 
-            client.query(pollStatement.convertQueryForNextPoll(query.toString(), connectionConfiguration, bindParameters),  {
-                val duration = Duration.ofNanos(System.nanoTime() - requestStart)
-                coroutineScope.launch {
-                    eventsLogger?.info(
-                        "$eventPrefix.successful-response",
-                        arrayOf(duration, it.results[0].series),
-                        tags = context.toEventTags()
-                    )
-                    successCounter?.increment()
-                    recordsCount?.increment(it.results[0].series.size.toDouble())
-                    if (it.results[0].series != null) {
-                        log.debug { "Received ${it.results[0].series.size} documents" }
-                        resultsChannel.send(
-                            InfluxDbQueryResult(
-                                queryResult = it,
-                                meters = InfluxDbQueryMeters(it.results[0].series.size, duration)
-                            )
+            val queryApi = client.queryApi
+            queryApi.query(pollStatement.convertQueryForNextPoll(query,connectionConfiguration, bindParameters),
+                { _: Cancellable, fluxRecord: FluxRecord ->
+                    val duration = Duration.ofNanos(System.nanoTime() - requestStart)
+                    coroutineScope.launch {
+                        eventsLogger?.info(
+                            "$eventPrefix.successful-response",
+                            arrayOf(duration, fluxRecord),
+                            tags = context.toEventTags()
                         )
-                        pollStatement.saveTieBreakerValueForNextPoll(it)
-                    } else {
-                        log.debug { "No new document was received" }
+                        successCounter?.increment()
+                        recordsCount?.increment()
+                        if (fluxRecord != null) {
+                            log.debug { "Received ${fluxRecord}" }
+                            timeToResult = duration
+                            fetchedRecords++
+                            listOfFlux.add(fluxRecord)
+                            pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
+                        } else {
+                            log.debug { "No new document was received" }
+                        }
+                        latch.cancel()
                     }
-                    latch.cancel()
-                }
-            },  {
+                }, {
                 val duration = Duration.ofNanos(System.nanoTime() - requestStart)
                 eventsLogger?.warn(
                     "$eventPrefix.failure",
@@ -168,6 +173,12 @@ internal class InfluxDbIterativeReader(
 
                 latch.cancel()
             })
+            resultsChannel.send(
+                InfluxDbQueryResult(
+                    queryResults = listOfFlux,
+                    meters = InfluxDbQueryMeters(fetchedRecords, timeToResult)
+                )
+            )
             latch.await()
         } catch (e: InterruptedException) {
             // The exception is ignored.

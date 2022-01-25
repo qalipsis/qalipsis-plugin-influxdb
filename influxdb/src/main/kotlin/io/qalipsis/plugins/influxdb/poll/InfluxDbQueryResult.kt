@@ -1,7 +1,6 @@
 package io.qalipsis.plugins.influxdb.poll
 
-import org.influxdb.dto.QueryResult
-
+import com.influxdb.query.FluxRecord
 
 /**
  * A wrapper for meters and documents.
@@ -12,6 +11,6 @@ import org.influxdb.dto.QueryResult
  * @author Alex Averyanov
  */
 class InfluxDbQueryResult(
-    val queryResult: QueryResult,
+    val queryResults: List<FluxRecord>,
     val meters: InfluxDbQueryMeters
 )

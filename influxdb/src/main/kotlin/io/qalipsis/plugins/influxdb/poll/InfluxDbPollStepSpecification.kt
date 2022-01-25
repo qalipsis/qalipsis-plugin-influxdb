@@ -13,13 +13,8 @@ import io.qalipsis.api.steps.UnicastSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbScenarioSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbStepSpecification
 import java.time.Duration
-import java.time.Instant
 import javax.validation.constraints.NotBlank
 import javax.validation.constraints.NotNull
-import org.influxdb.InfluxDB
-import org.influxdb.InfluxDBFactory
-import org.influxdb.dto.QueryResult
-
 interface InfluxDbPollStepSpecification :
     StepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     InfluxdbStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
@@ -60,9 +55,9 @@ interface InfluxDbPollStepSpecification :
  */
 interface InfluxDbPollStepConnection {
 
-    fun server(url: String, database: String)
+    fun server(url: String, bucket: String, org: String)
 
-    fun basic(username: String, password: String)
+    fun auth(token: CharArray)
 
     fun enableGzip()
 
@@ -115,22 +110,22 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
     var url = "http://127.0.0.1:8086"
 
     @field:NotBlank
-    var database = ""
+    var bucket = ""
 
-    var username: String? = null
+    var token: CharArray = charArrayOf()
 
-    var password: String? = null
+    var org: String = ""
 
     var gzipEnabled = false
 
-    override fun server(url: String, database: String) {
+    override fun server(url: String, bucket: String, org: String) {
         this.url = url
-        this.database = database
+        this.bucket = bucket
+        this.org = org
     }
 
-    override fun basic(username: String, password: String) {
-        this.username = username
-        this.password = password
+    override fun auth(token: CharArray) {
+        this.token = token
     }
 
     override fun enableGzip() {

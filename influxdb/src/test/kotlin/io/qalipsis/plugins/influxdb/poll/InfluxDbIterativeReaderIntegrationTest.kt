@@ -3,19 +3,20 @@ package io.qalipsis.plugins.influxdb.poll
 
 import assertk.all
 import assertk.assertThat
+import com.influxdb.client.domain.WritePrecision
+import com.influxdb.client.write.Point
 import io.aerisconsulting.catadioptre.coInvokeInvisible
 import io.mockk.impl.annotations.RelaxedMockK
 import io.qalipsis.api.context.StepStartStopContext
 import io.qalipsis.test.mockk.WithMockk
 import io.qalipsis.test.mockk.relaxedMockk
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
-import org.influxdb.BatchOptions
-import org.influxdb.dto.Point
-import org.influxdb.dto.Query
 import org.junit.jupiter.api.Test
+
 
 @WithMockk
 internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrationTest() {
@@ -29,25 +30,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     //@Timeout(20)
     fun `should save data and poll client`() = runBlocking {
 
-        val retentionPolicyName = "one_day_only"
-        client.query(
-            Query(
-                "CREATE RETENTION POLICY " + retentionPolicyName
-                        + " ON " + connectionConfig.database + " DURATION 1d REPLICATION 1 DEFAULT"
-            )
-        )
-        client.setRetentionPolicy(retentionPolicyName) // (3)
-
-
-        client.enableBatch(
-            BatchOptions.DEFAULTS
-                .threadFactory { runnable: Runnable? ->
-                    val thread = Thread(runnable)
-                    thread.isDaemon = true
-                    thread
-                }
-        )
-        val queryString = "SELECT * FROM cpu WHERE idle = \$idle"
+        val queryString = "from(bucket: my-bucket)"
         val pollStatement = InfluxDbPollStatement("time")
         reader = InfluxDbIterativeReader(
             clientFactory = { client },
@@ -65,26 +48,22 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
 
         reader.start(stepStartStopContext)
         reader.coInvokeInvisible<Unit>("poll", client)
-        val point1: Point = Point.measurement("cpu")
-            .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-            .addField("idle", 90L)
-            .addField("user", 9L)
-            .addField("system", 1L)
-            .build()
-        val point2: Point = Point.measurement("cpu")
-            .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-            .addField("idle", 90L)
-            .addField("user", 10L)
-            .addField("system", 12L)
-            .build()
-
-
-        client.write(point1)
+        val point1: Point = Point.measurement("temperature")
+            .addTag("location", "west")
+            .addField("idle", 55L)
+            .time(Instant.now().toEpochMilli(), WritePrecision.MS)
+        val writeApi = client.writeApiBlocking
+        writeApi.writePoint(point1)
 
         reader.coInvokeInvisible<Unit>("poll", client)
-        client.write(point2)
+        val point2: Point = Point.measurement("temperature")
+            .addTag("location", "west")
+            .addField("idle", 65L)
+            .time(Instant.now().toEpochMilli(), WritePrecision.MS)
+        writeApi.writePoint(point2)
         reader.coInvokeInvisible<Unit>("poll", client)
 
+        reader.coInvokeInvisible<Unit>("poll", client)
 
         val received1 = reader.next()
         val received2 = reader.next()

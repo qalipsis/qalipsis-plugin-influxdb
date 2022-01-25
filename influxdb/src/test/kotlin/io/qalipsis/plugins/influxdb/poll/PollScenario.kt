@@ -11,8 +11,6 @@ import io.qalipsis.api.steps.map
 import io.qalipsis.plugins.influxdb.influxdb
 import java.time.Duration
 import java.time.Instant
-import org.influxdb.dto.Query
-
 /**
  *
  * Scenario to demo how the poll step can work. The scenario reads the entries in a building on one side and the exits
