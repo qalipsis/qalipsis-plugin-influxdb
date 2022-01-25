@@ -173,13 +173,13 @@ internal class InfluxDbIterativeReader(
 
                 latch.cancel()
             })
+            latch.await()
             resultsChannel.send(
                 InfluxDbQueryResult(
                     queryResults = listOfFlux,
                     meters = InfluxDbQueryMeters(fetchedRecords, timeToResult)
                 )
             )
-            latch.await()
         } catch (e: InterruptedException) {
             // The exception is ignored.
         } catch (e: CancellationException) {

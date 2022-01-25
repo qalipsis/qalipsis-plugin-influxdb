@@ -30,7 +30,20 @@ internal abstract class AbstractInfluxDbIntegrationTest {
         connectionConfig.user = "user"
         connectionConfig.org = "testtesttest"
         connectionConfig.bucket = "test"
-        client = InfluxDBClientFactory.create(connectionConfig.url, "user", "passpasspass".toCharArray())
+        val influxDBClient = InfluxDBClientFactory.create(connectionConfig.url, "user", "passpasspass".toCharArray())
+
+        val authorizationsApi = influxDBClient
+            .authorizationsApi
+            .findAuthorizationsByUserName("user")
+        var token :CharArray = charArrayOf()
+        for (authorization in authorizationsApi) {
+            println("token = " + authorization.token)
+            token = authorization.token.toCharArray()
+        }
+
+        client = InfluxDBClientFactory.create(connectionConfig.url,
+            token, connectionConfig.org, connectionConfig.bucket)
+
     }
 
     @AfterAll

@@ -32,19 +32,24 @@ internal class InfluxDbPollStatement(
     private fun bindParamsToBuilder(queryBuilder: String, bindParameters: Map<@NotBlank String, Any>) : StringBuilder {
         val queryStringBuilder = StringBuilder(queryBuilder)
         bindParameters.forEach{ (k, v) ->
-            queryStringBuilder.append("|> filter(fn: (r) => r.$k == $v)")
+            queryStringBuilder.append(" |> filter(fn: (r) => r.$k == \"$v\") ")
         }
         return queryStringBuilder
     }
     override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>): Query {
-        var queryStringBuilder = StringBuilder()
-        if(bindParameters.isNotEmpty()) {
-            queryStringBuilder = StringBuilder(bindParamsToBuilder(queryString, bindParameters))
-        }
+        var queryStringBuilder = StringBuilder(queryString)
+
         return return if(tieBreaker != null) {
-            queryStringBuilder.append("|> range(start: $tieBreaker)")
+            queryStringBuilder.append(" |> range(start: time(v: $tieBreaker)) ")
+            if(bindParameters.isNotEmpty()) {
+                queryStringBuilder = StringBuilder(bindParamsToBuilder(queryStringBuilder.toString(), bindParameters))
+            }
             Query().query(queryStringBuilder.toString())
         } else {
+            queryStringBuilder.append(" |> range(start: 0) ")
+            if(bindParameters.isNotEmpty()) {
+                queryStringBuilder = StringBuilder(bindParamsToBuilder(queryStringBuilder.toString(), bindParameters))
+            }
             Query().query(queryStringBuilder.toString())
         }
         /*val query = Query()
