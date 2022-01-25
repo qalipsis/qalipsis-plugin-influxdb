@@ -26,11 +26,11 @@ internal abstract class AbstractInfluxDbIntegrationTest {
     @BeforeAll
     fun beforeAll() {
         connectionConfig.url = influxDBContainer.url
-        connectionConfig.password = "pass"
+        connectionConfig.password = "passpasspass"
         connectionConfig.user = "user"
-        connectionConfig.org = "test"
+        connectionConfig.org = "testtesttest"
         connectionConfig.bucket = "test"
-        client = InfluxDBClientFactory.create(connectionConfig.url, "user", "pass".toCharArray())
+        client = InfluxDBClientFactory.create(connectionConfig.url, "user", "passpasspass".toCharArray())
     }
 
     @AfterAll
@@ -50,8 +50,8 @@ internal abstract class AbstractInfluxDbIntegrationTest {
                 }
                 withEnv("DOCKER_INFLUXDB_INIT_MODE", "setup")
                 withEnv("DOCKER_INFLUXDB_INIT_USERNAME", "user")
-                withEnv("DOCKER_INFLUXDB_INIT_PASSWORD", "pass")
-                withEnv("DOCKER_INFLUXDB_INIT_ORG", "test")
+                withEnv("DOCKER_INFLUXDB_INIT_PASSWORD", "passpasspass")
+                withEnv("DOCKER_INFLUXDB_INIT_ORG", "testtesttest")
                 withEnv("DOCKER_INFLUXDB_INIT_BUCKET", "test")
                 withEnv("DOCKER_INFLUXDB_INIT_RETENTION", "1d")
             }
