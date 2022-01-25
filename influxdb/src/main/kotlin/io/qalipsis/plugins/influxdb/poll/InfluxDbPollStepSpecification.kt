@@ -57,7 +57,7 @@ interface InfluxDbPollStepConnection {
 
     fun server(url: String, bucket: String, org: String)
 
-    fun auth(token: CharArray)
+    fun auth(user: String, password: String)
 
     fun enableGzip()
 
@@ -112,7 +112,9 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
     @field:NotBlank
     var bucket = ""
 
-    var token: CharArray = charArrayOf()
+    var user: String = ""
+
+    var password: String = ""
 
     var org: String = ""
 
@@ -124,8 +126,9 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
         this.org = org
     }
 
-    override fun auth(token: CharArray) {
-        this.token = token
+    override fun auth(user: String, password: String) {
+        this.user = user
+        this.password = password
     }
 
     override fun enableGzip() {

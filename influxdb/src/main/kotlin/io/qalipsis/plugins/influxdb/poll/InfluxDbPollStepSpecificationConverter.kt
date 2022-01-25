@@ -39,8 +39,7 @@ internal class InfluxDbPollStepSpecificationConverter(
         val stepId = spec.name
 
         val reader = InfluxDbIterativeReader(
-            clientFactory = { InfluxDBClientFactory.create(spec.connectionConfiguration.url, spec.connectionConfiguration.token, spec.connectionConfiguration.org,
-                spec.connectionConfiguration.bucket)
+            clientFactory = { InfluxDBClientFactory.create(spec.connectionConfiguration.url, spec.connectionConfiguration.user.toCharArray(), spec.connectionConfiguration.password)
             },
             coroutineScope = coroutineScope,
             connectionConfiguration = spec.connectionConfiguration,

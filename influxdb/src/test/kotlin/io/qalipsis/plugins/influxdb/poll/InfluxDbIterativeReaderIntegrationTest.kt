@@ -30,12 +30,13 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     //@Timeout(20)
     fun `should save data and poll client`() = runBlocking {
 
-        val queryString = "from(bucket: my-bucket)"
+        client.bucketsApi.findBuckets()
+        val queryString = "from(bucket: test)"
         val pollStatement = InfluxDbPollStatement("time")
         reader = InfluxDbIterativeReader(
             clientFactory = { client },
             query = queryString,
-            bindParameters = mutableMapOf("idle" to 90L),
+            bindParameters = mutableMapOf("idle" to 55L),
             pollStatement = pollStatement,
             pollDelay = Duration.ofMillis(300),
             resultsChannelFactory = { Channel(2) },
@@ -58,7 +59,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         reader.coInvokeInvisible<Unit>("poll", client)
         val point2: Point = Point.measurement("temperature")
             .addTag("location", "west")
-            .addField("idle", 65L)
+            .addField("idle", 55L)
             .time(Instant.now().toEpochMilli(), WritePrecision.MS)
         writeApi.writePoint(point2)
         reader.coInvokeInvisible<Unit>("poll", client)
