@@ -10,12 +10,11 @@ import io.mockk.impl.annotations.RelaxedMockK
 import io.qalipsis.api.context.StepStartStopContext
 import io.qalipsis.test.mockk.WithMockk
 import io.qalipsis.test.mockk.relaxedMockk
-import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
+import java.time.Duration
+import java.time.Instant
 
 
 @WithMockk
@@ -39,7 +38,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
             bindParameters = mutableMapOf("idle" to 55),
             pollStatement = pollStatement,
             pollDelay = Duration.ofMillis(300),
-            resultsChannelFactory = { Channel(2) },
+            resultsChannelFactory = { Channel(2) }, // The capacity is perhaps to small, preventing from data to be written by the poll action.
             coroutineScope = this,
             eventsLogger = null,
             meterRegistry = null,
@@ -48,6 +47,8 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         reader.init()
 
         reader.start(stepStartStopContext)
+        // Why are you polling before there is any data? I do not mean here that it doesn't make any sense, but has to
+        // be documented.
         reader.coInvokeInvisible<Unit>("poll", client)
         val point1: Point = Point.measurement("temperature")
             .addTag("location", "west")
@@ -68,7 +69,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
 
         val received1 = reader.next()
         val received2 = reader.next()
-        val received3 = reader.next()
+        val received3 = reader.next() // Are you sure you still have data here? If not, you will block forever.
         assertThat(received1).all {
             /* hasSize(39)
              index(0).all {

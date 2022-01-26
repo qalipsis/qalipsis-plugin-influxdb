@@ -12,8 +12,6 @@ import io.qalipsis.api.events.EventsLogger
 import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.api.steps.datasource.DatasourceIterativeReader
 import io.qalipsis.api.sync.Latch
-import java.time.Duration
-import javax.validation.constraints.NotBlank
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -22,6 +20,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.Duration
+import javax.validation.constraints.NotBlank
 
 /**
  * Database reader based upon
@@ -140,18 +140,18 @@ internal class InfluxDbIterativeReader(
             val requestStart = System.nanoTime()
 
             val queryApi = client.queryApi
-            queryApi.query(pollStatement.convertQueryForNextPoll(query,connectionConfiguration, bindParameters),
+            queryApi.query(pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters),
                 { _: Cancellable, fluxRecord: FluxRecord ->
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
                     coroutineScope.launch {
-                        eventsLogger?.info(
+                        eventsLogger?.info( // This call can be done outside the coroutine, that would save resources from the coroutine.
                             "$eventPrefix.successful-response",
                             arrayOf(duration, fluxRecord),
                             tags = context.toEventTags()
                         )
-                        successCounter?.increment()
-                        recordsCount?.increment()
-                        if (fluxRecord != null) {
+                        successCounter?.increment() // This call can be done outside the coroutine, that would save resources from the coroutine.
+                        recordsCount?.increment() // This call can be done outside the coroutine, that would save resources from the coroutine.
+                        if (fluxRecord != null) { // According to IntelliJ, this is always true, I would rather believe it, since the whole lamdbd is only called when there are data.
                             log.debug { "Received ${fluxRecord}" }
                             timeToResult = duration
                             fetchedRecords++
@@ -160,19 +160,23 @@ internal class InfluxDbIterativeReader(
                         } else {
                             log.debug { "No new document was received" }
                         }
-                        latch.cancel()
+                        //latch.cancel() // You actually exit the poll function after the first record, not after the last. listOfFlux will always have only one element.
                     }
                 }, {
-                val duration = Duration.ofNanos(System.nanoTime() - requestStart)
-                eventsLogger?.warn(
-                    "$eventPrefix.failure",
-                    arrayOf(it, duration),
-                    tags = context.toEventTags()
-                )
-                failureCounter?.increment()
+                    val duration = Duration.ofNanos(System.nanoTime() - requestStart)
+                    eventsLogger?.warn(
+                        "$eventPrefix.failure",
+                        arrayOf(it, duration),
+                        tags = context.toEventTags()
+                    )
+                    failureCounter?.increment()
 
-                latch.cancel()
-            })
+                    latch.cancel()
+                }, {
+                    // You need to use the "onComplete" handler to cancel the latch only once the flow was totally consumed.
+                    latch.cancel()
+                })
+
             latch.await()
             resultsChannel.send(
                 InfluxDbQueryResult(
@@ -188,6 +192,7 @@ internal class InfluxDbIterativeReader(
             log.error(e) { e.message }
         }
     }
+
     private companion object {
         @JvmStatic
         val log = logger()
