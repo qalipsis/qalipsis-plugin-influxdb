@@ -66,7 +66,7 @@ internal abstract class AbstractInfluxDbIntegrationTest {
                 withEnv("DOCKER_INFLUXDB_INIT_PASSWORD", "passpasspass")
                 withEnv("DOCKER_INFLUXDB_INIT_ORG", "testtesttest")
                 withEnv("DOCKER_INFLUXDB_INIT_BUCKET", "test")
-                withEnv("DOCKER_INFLUXDB_INIT_RETENTION", "1d")
+                withEnv("DOCKER_INFLUXDB_INIT_RETENTION", "2d")
             }
 
         @JvmStatic

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 
 internal class InfluxDbSpecificationImplTest {
 
-    /*@Test
+    @Test
     internal fun `should add minimal specification to the scenario with default values`() {
         val scenario = scenario("my-scenario") as StepSpecificationRegistry
         scenario.influxdb().poll {
@@ -47,7 +47,7 @@ internal class InfluxDbSpecificationImplTest {
         scenario.influxdb().poll {
             name = "my-step"
             connect {
-                server("http://127.0.0.1:8086","DB")
+                server("http://127.0.0.1:8086","DB", "org")
                 auth("user","pass")
             }
             pollDelay(Duration.ofSeconds(1L))
@@ -67,7 +67,7 @@ internal class InfluxDbSpecificationImplTest {
             }
             prop(InfluxDbPollStepSpecificationImpl::connectionConfiguration).isInstanceOf(InfluxDbPollStepConnectionImpl::class).all {
                 prop(InfluxDbPollStepConnectionImpl::bucket).isEqualTo("DB")
-                prop(InfluxDbPollStepConnectionImpl::username).isEqualTo("user")
+                prop(InfluxDbPollStepConnectionImpl::user).isEqualTo("user")
                 prop(InfluxDbPollStepConnectionImpl::url).isEqualTo("http://127.0.0.1:8086")
                 prop(InfluxDbPollStepConnectionImpl::password).isEqualTo("pass")
             }
@@ -85,7 +85,7 @@ internal class InfluxDbSpecificationImplTest {
         scenario.influxdb().poll {
             name = "my-step"
             connect {
-                server("http://127.0.0.1:8086","DB")
+                server("http://127.0.0.1:8086","DB","org")
                 auth("user","pass")
             }
             pollDelay(Duration.ofSeconds(1L))
@@ -105,7 +105,7 @@ internal class InfluxDbSpecificationImplTest {
             }
             prop(InfluxDbPollStepSpecificationImpl::connectionConfiguration).isInstanceOf(InfluxDbPollStepConnectionImpl::class).all {
                 prop(InfluxDbPollStepConnectionImpl::bucket).isEqualTo("DB")
-                prop(InfluxDbPollStepConnectionImpl::username).isEqualTo("user")
+                prop(InfluxDbPollStepConnectionImpl::user).isEqualTo("user")
                 prop(InfluxDbPollStepConnectionImpl::url).isEqualTo("http://127.0.0.1:8086")
                 prop(InfluxDbPollStepConnectionImpl::password).isEqualTo("pass")
             }
@@ -116,5 +116,5 @@ internal class InfluxDbSpecificationImplTest {
             }
         }
     }
-*/
+
 }

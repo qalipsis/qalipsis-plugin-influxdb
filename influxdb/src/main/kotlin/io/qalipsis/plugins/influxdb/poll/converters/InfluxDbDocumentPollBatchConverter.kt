@@ -9,8 +9,7 @@ import io.qalipsis.plugins.influxdb.poll.InfluxDbPollResults
 import io.qalipsis.plugins.influxdb.poll.InfluxDbQueryResult
 import java.util.concurrent.atomic.AtomicLong
 /**
- * Implementation of [DatasourceObjectConverter], that reads a batch of InfluxDb documents and forwards it
- * as a list of [InfluxDBSearchResults].
+ * Implementation of [DatasourceObjectConverter], that reads a batch of InfluxDb
  *
  * @author Alex Averyanov
  */

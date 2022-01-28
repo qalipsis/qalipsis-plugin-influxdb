@@ -132,10 +132,12 @@ internal class InfluxDbIterativeReader(
     private suspend fun poll(client: InfluxDBClient) {
         try {
             val latch = Latch(true)
-            var fetchedRecords: Int = 0
-            var timeToResult: Duration = Duration.ofNanos(0L)
-            val listOfFlux = ArrayList<FluxRecord>()
 
+            var fetchedRecords: Int = 0
+
+            var timeToResult: Duration = Duration.ofNanos(0L)
+
+            var listOfFlux = ArrayList<FluxRecord>()
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
 
@@ -143,24 +145,19 @@ internal class InfluxDbIterativeReader(
             queryApi.query(pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters),
                 { _: Cancellable, fluxRecord: FluxRecord ->
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
+                    successCounter?.increment()
+                    recordsCount?.increment()
+                    eventsLogger?.info(
+                        "$eventPrefix.successful-response",
+                        arrayOf(duration, fluxRecord),
+                        tags = context.toEventTags()
+                    )
+                    log.debug { "Received ${fluxRecord}" }
                     coroutineScope.launch {
-                        eventsLogger?.info( // This call can be done outside the coroutine, that would save resources from the coroutine.
-                            "$eventPrefix.successful-response",
-                            arrayOf(duration, fluxRecord),
-                            tags = context.toEventTags()
-                        )
-                        successCounter?.increment() // This call can be done outside the coroutine, that would save resources from the coroutine.
-                        recordsCount?.increment() // This call can be done outside the coroutine, that would save resources from the coroutine.
-                        if (fluxRecord != null) { // According to IntelliJ, this is always true, I would rather believe it, since the whole lamdbd is only called when there are data.
-                            log.debug { "Received ${fluxRecord}" }
-                            timeToResult = duration
-                            fetchedRecords++
-                            listOfFlux.add(fluxRecord)
-                            pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
-                        } else {
-                            log.debug { "No new document was received" }
-                        }
-                        //latch.cancel() // You actually exit the poll function after the first record, not after the last. listOfFlux will always have only one element.
+                        timeToResult = duration
+                        fetchedRecords++
+                        listOfFlux.add(fluxRecord)
+                        pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
                     }
                 }, {
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
@@ -172,18 +169,21 @@ internal class InfluxDbIterativeReader(
                     failureCounter?.increment()
 
                     latch.cancel()
-                }, {
-                    // You need to use the "onComplete" handler to cancel the latch only once the flow was totally consumed.
+                } ,
+                {
+                    coroutineScope.launch {
+                        resultsChannel.send(
+                            InfluxDbQueryResult(
+                                queryResults = listOfFlux,
+                                meters = InfluxDbQueryMeters(fetchedRecords, timeToResult)
+                            )
+                        )
+                    }
                     latch.cancel()
-                })
+                },
+            )
 
             latch.await()
-            resultsChannel.send(
-                InfluxDbQueryResult(
-                    queryResults = listOfFlux,
-                    meters = InfluxDbQueryMeters(fetchedRecords, timeToResult)
-                )
-            )
         } catch (e: InterruptedException) {
             // The exception is ignored.
         } catch (e: CancellationException) {

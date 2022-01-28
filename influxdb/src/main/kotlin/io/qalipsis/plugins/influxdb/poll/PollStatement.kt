@@ -2,7 +2,6 @@ package io.qalipsis.plugins.influxdb.poll
 
 import com.influxdb.client.domain.Query
 import com.influxdb.query.FluxRecord
-import java.time.Instant
 import javax.validation.constraints.NotBlank
 
 

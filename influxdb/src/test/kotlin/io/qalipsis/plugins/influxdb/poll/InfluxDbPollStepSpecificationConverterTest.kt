@@ -62,7 +62,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
             connect{
                 InfluxDbPollStepConnectionImpl()
             }
-            query = "SELECT * FROM cpu WHERE idle  = \$idle AND system = \$system"
+            query = "from(bucket: \"test\""
 
             bindParameters("idle" to 90)
             bindParameters("system" to 5)
@@ -110,7 +110,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         }
     }
 
-  /*  @Test
+    @Test
     @ExperimentalCoroutinesApi
     @Timeout(5)
     fun `should convert without name and metrics`() = runBlockingTest {
@@ -119,10 +119,10 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         spec.apply {
             this.name = "my-step"
             connect{
-                server("http://127.0.0.1:8086","DB")
+                server("http://127.0.0.1:8086","DB", "org")
                 auth("user","pass")
             }
-            query = "SELECT * FROM cpu WHERE idle  = \$idle AND system = \$system"
+            query = "from(bucket: \"test\""
 
             bindParameters("idle" to 90)
             bindParameters("system" to 5)
@@ -180,5 +180,5 @@ internal class InfluxDbPollStepSpecificationConverterTest :
 
         // then
         assertThat(converter).isInstanceOf(InfluxDbDocumentPollBatchConverter::class)
-    }*/
+    }
 }

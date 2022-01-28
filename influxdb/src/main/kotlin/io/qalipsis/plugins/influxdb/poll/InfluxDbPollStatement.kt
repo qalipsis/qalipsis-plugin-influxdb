@@ -11,22 +11,19 @@ import javax.validation.constraints.NotBlank
  * @property tieBreaker - tie breaker instant
  * @author Alex Averyanov
  */
-internal class InfluxDbPollStatement(
-    val tieBreakerName: String
-): PollStatement {
+internal class InfluxDbPollStatement: PollStatement {
 
      private var tieBreaker: Any? = null
 
     override fun saveTieBreakerValueForNextPoll(queryResult: FluxRecord) {
-        var maxTimeStamp: Instant? = null
         val latestTimeStamp = (queryResult.time)
-        if(maxTimeStamp == null) {
-            maxTimeStamp = latestTimeStamp
-        } else if(latestTimeStamp!!.isAfter(maxTimeStamp)) {
-            maxTimeStamp = latestTimeStamp
+        if(tieBreaker != null) {
+            if(latestTimeStamp!!.isAfter(tieBreaker as Instant?)) {
+                tieBreaker = latestTimeStamp
+            }
+        } else {
+            tieBreaker = latestTimeStamp
         }
-
-        tieBreaker = maxTimeStamp
     }
 
     private fun bindParamsToBuilder(queryBuilder: String, bindParameters: Map<@NotBlank String, Any>) : StringBuilder {
@@ -40,7 +37,7 @@ internal class InfluxDbPollStatement(
         var queryStringBuilder = StringBuilder(queryString)
 
         return return if(tieBreaker != null) {
-            queryStringBuilder.append(" |> range(start: time(v: $tieBreaker)) ")
+            queryStringBuilder.append(" |> range(start: $tieBreaker) ").append(" |> filter(fn: (r) => r._time >= $tieBreaker) ")
             if(bindParameters.isNotEmpty()) {
                 queryStringBuilder = StringBuilder(bindParamsToBuilder(queryStringBuilder.toString(), bindParameters))
             }
@@ -52,33 +49,7 @@ internal class InfluxDbPollStatement(
             }
             Query().query(queryStringBuilder.toString())
         }
-        /*val query = Query()
-        query.query = queryString
-        query.params = bindParameters
-        return query*/
     }
-
-
-    /*fun convertQueryForNextPoll1(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>) {
-        val queryStringBuilder = StringBuilder(queryString)
-        if(bindParameters.isEmpty()) {
-            if(tieBreaker != null) {
-
-            }
-        }
-
-        /* if(tieBreaker != null) {
-            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery("$queryStringBuilder AND $tieBreakerName >= '$tieBreaker'")
-            queryBuilder.forDatabase(connectionConfiguration.bucket)
-            queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
-            queryBuilder.create()
-        } else {
-            var queryBuilder: BoundParameterQuery.QueryBuilder = BoundParameterQuery.QueryBuilder.newQuery(queryString)
-            queryBuilder.forDatabase(connectionConfiguration.bucket)
-            queryBuilder = bindParamsToBuilder(queryBuilder, bindParameters)
-            queryBuilder.create()
-        }*/
-    }*/
 
     override fun reset() {
         tieBreaker = null

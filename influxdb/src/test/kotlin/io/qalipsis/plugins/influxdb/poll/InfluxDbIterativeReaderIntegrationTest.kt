@@ -1,6 +1,5 @@
 package io.qalipsis.plugins.influxdb.poll
 
-
 import assertk.all
 import assertk.assertThat
 import com.influxdb.client.domain.WritePrecision
@@ -12,10 +11,16 @@ import io.qalipsis.test.mockk.WithMockk
 import io.qalipsis.test.mockk.relaxedMockk
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
+import assertk.assertions.hasSize
+import assertk.assertions.index
+import assertk.assertions.isInstanceOf
+import assertk.assertions.isNotNull
+import com.influxdb.query.FluxRecord
+import io.qalipsis.test.assertk.prop
 import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.time.Instant
-
+import java.time.Period
 
 @WithMockk
 internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrationTest() {
@@ -31,11 +36,11 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
 
         client.bucketsApi.findBuckets()
         val queryString = "from(bucket: \"test\")"
-        val pollStatement = InfluxDbPollStatement("time")
+        val pollStatement = InfluxDbPollStatement()
         reader = InfluxDbIterativeReader(
             clientFactory = { client },
             query = queryString,
-            bindParameters = mutableMapOf("idle" to 55),
+            bindParameters = mutableMapOf("_value" to "55"),
             pollStatement = pollStatement,
             pollDelay = Duration.ofMillis(300),
             resultsChannelFactory = { Channel(2) }, // The capacity is perhaps to small, preventing from data to be written by the poll action.
@@ -46,61 +51,47 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         )
         reader.init()
 
-        reader.start(stepStartStopContext)
-        // Why are you polling before there is any data? I do not mean here that it doesn't make any sense, but has to
-        // be documented.
-        reader.coInvokeInvisible<Unit>("poll", client)
         val point1: Point = Point.measurement("temperature")
-            .addTag("location", "west")
-            .addField("idle", 55)
-            .time(Instant.now().toEpochMilli(), WritePrecision.MS)
+            .addTag("location", "west1")
+            .addField("idle", "55")
+            .time(Instant.now().minus(Period.ofDays(1)), WritePrecision.MS)
         val writeApi = client.writeApiBlocking
         writeApi.writePoint(point1)
 
         reader.coInvokeInvisible<Unit>("poll", client)
         val point2: Point = Point.measurement("temperature")
-            .addTag("location", "west")
-            .addField("idle", 55)
+            .addTag("location", "west2")
+            .addField("idle", "55")
             .time(Instant.now().toEpochMilli(), WritePrecision.MS)
         writeApi.writePoint(point2)
         reader.coInvokeInvisible<Unit>("poll", client)
-
         reader.coInvokeInvisible<Unit>("poll", client)
 
         val received1 = reader.next()
         val received2 = reader.next()
-        val received3 = reader.next() // Are you sure you still have data here? If not, you will block forever.
-        assertThat(received1).all {
-            /* hasSize(39)
-             index(0).all {
-                 key("device").isEqualTo("Car #1")
-                 key("event").isEqualTo("Driving")
-                 key("time").isEqualTo(BsonTimestamp(1603197368000))
-             }
-             index(12).all {
-                 key("device").isEqualTo("Car #1")
-                 key("event").isEqualTo("Stop")
-                 key("time").isEqualTo(BsonTimestamp(1603198728000))
-             }
-             index(26).all {
-                 key("device").isEqualTo("Truck #1")
-                 key("event").isEqualTo("Driving")
-                 key("time").isEqualTo(BsonTimestamp(1603197368000))
-             }
-             index(38).all {
-                 key("device").isEqualTo("Truck #1")
-                 key("event").isEqualTo("Stop")
-                 key("time").isEqualTo(BsonTimestamp(1603198728000))
-             }*/
+        val received3 = reader.next()
+          assertThat(received1.queryResults).all {
+              hasSize(1)
+              index(0).isInstanceOf(FluxRecord::class).all {
+                  prop("values").isNotNull()
+              }
         }
 
-        assertThat(received2).all {
-
+        assertThat(received2.queryResults).all {
+            hasSize(2)
+            index(0).isInstanceOf(FluxRecord::class).all {
+                prop("values").isNotNull()
+            }
+            index(1).isInstanceOf(FluxRecord::class).all {
+                prop("values").isNotNull()
+            }
         }
-        assertThat(received3).all {
-
+        assertThat(received3.queryResults).all {
+            hasSize(1)
+            index(0).isInstanceOf(FluxRecord::class).all {
+                prop("values").isNotNull()
+            }
         }
-
         reader.stop(relaxedMockk())
     }
 }

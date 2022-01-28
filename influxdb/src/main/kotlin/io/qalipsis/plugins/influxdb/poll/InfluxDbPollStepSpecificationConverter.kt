@@ -65,10 +65,7 @@ internal class InfluxDbPollStepSpecificationConverter(
     fun buildPollStatement(
         spec: InfluxDbPollStepSpecificationImpl
     ): PollStatement {
-        val search = spec.searchConfig
-        return InfluxDbPollStatement(
-            tieBreakerName = search.tieBreaker
-        )
+        return InfluxDbPollStatement()
     }
 
     private fun buildConverter(

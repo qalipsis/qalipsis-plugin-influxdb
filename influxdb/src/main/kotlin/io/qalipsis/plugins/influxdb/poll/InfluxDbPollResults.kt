@@ -2,7 +2,6 @@ package io.qalipsis.plugins.influxdb.poll
 
 import com.influxdb.query.FluxRecord
 
-
 /**
  * Wrapper for the result of poll in InfluxDb.
  *
