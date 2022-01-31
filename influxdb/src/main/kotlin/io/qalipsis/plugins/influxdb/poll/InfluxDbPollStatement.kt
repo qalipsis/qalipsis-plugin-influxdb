@@ -34,7 +34,8 @@ internal class InfluxDbPollStatement: PollStatement {
         return queryStringBuilder
     }
 
-    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>): Query {
+    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl,
+                                         bindParameters: Map<@NotBlank String, Any>): Query {
         var queryStringBuilder = StringBuilder(queryString)
 
         return return if(tieBreaker != null) {

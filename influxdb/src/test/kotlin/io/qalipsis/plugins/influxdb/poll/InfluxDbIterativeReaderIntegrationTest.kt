@@ -2,34 +2,28 @@ package io.qalipsis.plugins.influxdb.poll
 
 import assertk.all
 import assertk.assertThat
-import com.influxdb.client.domain.WritePrecision
-import com.influxdb.client.write.Point
-import io.aerisconsulting.catadioptre.coInvokeInvisible
-import io.mockk.impl.annotations.RelaxedMockK
-import io.qalipsis.api.context.StepStartStopContext
-import io.qalipsis.test.mockk.WithMockk
-import io.qalipsis.test.mockk.relaxedMockk
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.runBlocking
 import assertk.assertions.hasSize
 import assertk.assertions.index
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
+import com.influxdb.client.domain.WritePrecision
+import com.influxdb.client.write.Point
 import com.influxdb.query.FluxRecord
+import io.aerisconsulting.catadioptre.coInvokeInvisible
 import io.qalipsis.test.assertk.prop
-import org.junit.jupiter.api.Test
+import io.qalipsis.test.mockk.relaxedMockk
 import java.time.Duration
 import java.time.Instant
 import java.time.Period
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 
-@WithMockk
 internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrationTest() {
 
     private lateinit var reader: InfluxDbIterativeReader
-
-    @RelaxedMockK
-    private lateinit var stepStartStopContext: StepStartStopContext
 
     @Test
     @Timeout(20)
@@ -71,15 +65,24 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         val received1 = reader.next()
         val received2 = reader.next()
         val received3 = reader.next()
-          assertThat(received1.queryResults).all {
+
+        Assertions.assertEquals("55", received2.results[0].value)
+        Assertions.assertEquals("west1", received2.results[0].values["location"])
+        assertThat(received1.results).all {
               hasSize(1)
               index(0).isInstanceOf(FluxRecord::class).all {
                   prop("values").isNotNull()
               }
         }
 
-        assertThat(received2.queryResults).all {
+        Assertions.assertEquals("55", received2.results[0].value)
+        Assertions.assertEquals("west1", received2.results[0].values["location"])
+
+        Assertions.assertEquals("55", received2.results[1].value)
+        Assertions.assertEquals("west2", received2.results[1].values["location"])
+        assertThat(received2.results).all {
             hasSize(2)
+
             index(0).isInstanceOf(FluxRecord::class).all {
                 prop("values").isNotNull()
             }
@@ -87,7 +90,10 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
                 prop("values").isNotNull()
             }
         }
-        assertThat(received3.queryResults).all {
+
+        Assertions.assertEquals("55", received3.results[0].value)
+        Assertions.assertEquals("west2", received3.results[0].values["location"])
+        assertThat(received3.results).all {
             hasSize(1)
             index(0).isInstanceOf(FluxRecord::class).all {
                 prop("values").isNotNull()

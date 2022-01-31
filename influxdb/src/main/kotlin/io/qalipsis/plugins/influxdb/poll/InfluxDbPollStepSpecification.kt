@@ -54,11 +54,18 @@ interface InfluxDbPollStepSpecification :
  * Interface to establish a connection with InfluxDb
  */
 interface InfluxDbPollStepConnection {
-
+    /**
+     * Configures the servers settings.
+     */
     fun server(url: String, bucket: String, org: String)
 
+    /**
+     * Configures the users settings.
+     */
     fun basic(user: String, password: String)
-
+    /**
+     * When it is called, it sets the variable gzipEnabled of the specification to true, which will call influxDb.enableGzip() when creating the connection.
+     */
     fun enableGzip()
 
 }
@@ -66,8 +73,6 @@ interface InfluxDbPollStepConnection {
 internal class InfluxDbPollStepSpecificationImpl(
 ) :  AbstractStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>(),
     InfluxDbPollStepSpecification {
-
-    internal var searchConfig = InfluxDbSearchConfiguration()
 
     override val singletonConfiguration: SingletonConfiguration = SingletonConfiguration(SingletonType.UNICAST)
 
@@ -135,19 +140,6 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
         this.gzipEnabled = true
     }
 }
-
-/**
- * @property database name of db to search
- * @property collection collection in db (table in sql)
- * @property query [QueryResult] query for search
- * @property tieBreaker defines the name, which is the value used to limit the records for the next poll.
- * The tie-breaker must be used as the first sort clause of the query and always be not null. Only the records
- * from the database having a [tieBreaker] greater (or less if sorted descending) than the last polled value will be fetched at next poll.
- */
-@Spec
-data class InfluxDbSearchConfiguration(
-    @field:NotBlank var tieBreaker: String = "time"
-)
 
     /**
  * Creates an InfluxDB poll step in order to periodically fetch data from an InfluxDB server.

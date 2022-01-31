@@ -23,7 +23,7 @@ val kotlinCoroutinesVersion: String by project
 val testContainersVersion: String by project
 val jacksonVersion: String by project
 
-val influxdbVersion = "2.22"
+val influxdbVersion = "4.1.0"
 val catadioptreVersion: String by project
 
 kotlin.sourceSets["test"].kotlin.srcDir("build/generated/source/kaptKotlin/catadioptre")
@@ -36,7 +36,7 @@ dependencies {
 
     compileOnly("io.micronaut:micronaut-runtime")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
-    api("com.influxdb:influxdb-client-java:4.1.0")
+    api("com.influxdb:influxdb-client-java:$influxdbVersion")
 
     api("io.qalipsis:api-common:${project.version}")
     api("io.qalipsis:api-dsl:${project.version}")

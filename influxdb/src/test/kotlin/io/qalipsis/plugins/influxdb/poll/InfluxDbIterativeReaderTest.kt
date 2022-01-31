@@ -55,7 +55,7 @@ internal class InfluxDbIterativeReaderTest {
     private val clientBuilder: () -> InfluxDBClient = { client }
 
     @Test
-    @Timeout(25)
+    @Timeout(3)
     internal fun `should be restartable`() = testDispatcherProvider.run {
         val connectionConfig  = InfluxDbPollStepConnectionImpl()
 

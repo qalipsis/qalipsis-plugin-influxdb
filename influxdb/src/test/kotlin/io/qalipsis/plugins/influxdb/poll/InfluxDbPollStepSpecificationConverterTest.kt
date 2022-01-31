@@ -60,7 +60,9 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         spec.apply {
             this.name = "my-step"
             connect{
-                InfluxDbPollStepConnectionImpl()
+                server("http://127.0.0.1:8086", "my-database", "my_org")
+                basic("username", "password")
+                enableGzip()
             }
             query = "from(bucket: \"test\""
 

@@ -1,6 +1,5 @@
 package io.qalipsis.plugins.mondodb.converters
 
-import com.influxdb.query.FluxRecord
 import io.qalipsis.api.context.StepOutput
 import io.qalipsis.api.lang.tryAndLogOrNull
 import io.qalipsis.api.logging.LoggerHelper.logger
@@ -15,8 +14,6 @@ import java.util.concurrent.atomic.AtomicLong
  */
 internal class InfluxDbDocumentPollBatchConverter(
 ) :  DatasourceObjectConverter<InfluxDbQueryResult, InfluxDbPollResults>{
-
-    private fun convert(records: List<FluxRecord>) = records
     override suspend fun supply(
         offset: AtomicLong,
         value: InfluxDbQueryResult,
@@ -25,7 +22,7 @@ internal class InfluxDbDocumentPollBatchConverter(
         tryAndLogOrNull(log) {
             output.send(
                 InfluxDbPollResults(
-                    results = convert(value.queryResults),
+                    results = value.results,
                     meters = value.meters
                 )
             )

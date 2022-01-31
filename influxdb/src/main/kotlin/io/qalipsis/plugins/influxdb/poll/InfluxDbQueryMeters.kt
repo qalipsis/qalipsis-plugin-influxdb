@@ -6,7 +6,7 @@ import java.time.Duration
  * Meters of the performed query.
  *
  * @property fetchedRecords count of received records
- * @property timeToResult time to until the complete successful response
+ * @property timeToResult elapsed time from the query execution until the complete successful reception of results
  *
  * @author Alex Averyanov
  */

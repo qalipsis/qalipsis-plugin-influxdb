@@ -132,19 +132,15 @@ internal class InfluxDbIterativeReader(
     private suspend fun poll(client: InfluxDBClient) {
         try {
             val latch = Latch(true)
-            var fetchedRecords: Int = 0
-            var timeToResult: Duration = Duration.ofNanos(0L)
-            var listOfFlux = mutableListOf<FluxRecord>()
+            var records = mutableListOf<FluxRecord>()
 
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
 
             client.queryApi.query(pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters),
                 { _: Cancellable, fluxRecord: FluxRecord ->
-                    listOfFlux.add(fluxRecord)
+                    records.add(fluxRecord)
                     log.trace { "Received $fluxRecord" }
-                    pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
-
                 }, {
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
                     eventsLogger?.warn(
@@ -156,21 +152,20 @@ internal class InfluxDbIterativeReader(
                     latch.cancel()
                 } ,
                 {
+                    pollStatement.saveTieBreakerValueForNextPoll(records[records.size - 1])
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
-                    successCounter?.increment(listOfFlux.size.toDouble())
-                    recordsCount?.increment(listOfFlux.size.toDouble())
-                    fetchedRecords += listOfFlux.size
+                    successCounter?.increment(records.size.toDouble())
+                    recordsCount?.increment(records.size.toDouble())
                     eventsLogger?.info(
                         "$eventPrefix.successful-response",
                         duration,
                         tags = context.toEventTags()
                     )
                     coroutineScope.launch {
-                        timeToResult = duration
                         resultsChannel.send(
                             InfluxDbQueryResult(
-                                queryResults = listOfFlux,
-                                meters = InfluxDbQueryMeters(fetchedRecords, timeToResult)
+                                results = records,
+                                meters = InfluxDbQueryMeters(records.size, duration)
                             )
                         )
                     }
