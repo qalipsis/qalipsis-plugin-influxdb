@@ -132,33 +132,19 @@ internal class InfluxDbIterativeReader(
     private suspend fun poll(client: InfluxDBClient) {
         try {
             val latch = Latch(true)
-
             var fetchedRecords: Int = 0
-
             var timeToResult: Duration = Duration.ofNanos(0L)
+            var listOfFlux = mutableListOf<FluxRecord>()
 
-            var listOfFlux = ArrayList<FluxRecord>()
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
 
-            val queryApi = client.queryApi
-            queryApi.query(pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters),
+            client.queryApi.query(pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters),
                 { _: Cancellable, fluxRecord: FluxRecord ->
-                    val duration = Duration.ofNanos(System.nanoTime() - requestStart)
-                    successCounter?.increment()
-                    recordsCount?.increment()
-                    eventsLogger?.info(
-                        "$eventPrefix.successful-response",
-                        arrayOf(duration, fluxRecord),
-                        tags = context.toEventTags()
-                    )
-                    log.debug { "Received ${fluxRecord}" }
-                    coroutineScope.launch {
-                        timeToResult = duration
-                        fetchedRecords++
-                        listOfFlux.add(fluxRecord)
-                        pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
-                    }
+                    listOfFlux.add(fluxRecord)
+                    log.trace { "Received $fluxRecord" }
+                    pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
+
                 }, {
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
                     eventsLogger?.warn(
@@ -167,11 +153,20 @@ internal class InfluxDbIterativeReader(
                         tags = context.toEventTags()
                     )
                     failureCounter?.increment()
-
                     latch.cancel()
                 } ,
                 {
+                    val duration = Duration.ofNanos(System.nanoTime() - requestStart)
+                    successCounter?.increment(listOfFlux.size.toDouble())
+                    recordsCount?.increment(listOfFlux.size.toDouble())
+                    fetchedRecords += listOfFlux.size
+                    eventsLogger?.info(
+                        "$eventPrefix.successful-response",
+                        duration,
+                        tags = context.toEventTags()
+                    )
                     coroutineScope.launch {
+                        timeToResult = duration
                         resultsChannel.send(
                             InfluxDbQueryResult(
                                 queryResults = listOfFlux,
@@ -200,5 +195,5 @@ internal class InfluxDbIterativeReader(
 
     override suspend fun hasNext(): Boolean = running
 
-    override suspend fun next(): InfluxDbQueryResult = resultsChannel!!.receive()
+    override suspend fun next(): InfluxDbQueryResult = resultsChannel.receive()
 }

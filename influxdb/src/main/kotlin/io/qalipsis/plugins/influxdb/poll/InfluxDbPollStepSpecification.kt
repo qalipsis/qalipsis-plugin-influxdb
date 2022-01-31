@@ -57,7 +57,7 @@ interface InfluxDbPollStepConnection {
 
     fun server(url: String, bucket: String, org: String)
 
-    fun auth(user: String, password: String)
+    fun basic(user: String, password: String)
 
     fun enableGzip()
 
@@ -126,7 +126,7 @@ internal class InfluxDbPollStepConnectionImpl : InfluxDbPollStepConnection {
         this.org = org
     }
 
-    override fun auth(user: String, password: String) {
+    override fun basic(user: String, password: String) {
         this.user = user
         this.password = password
     }

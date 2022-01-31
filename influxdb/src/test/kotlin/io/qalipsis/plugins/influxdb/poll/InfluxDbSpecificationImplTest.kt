@@ -48,7 +48,7 @@ internal class InfluxDbSpecificationImplTest {
             name = "my-step"
             connect {
                 server("http://127.0.0.1:8086","DB", "org")
-                auth("user","pass")
+                basic("user","pass")
             }
             pollDelay(Duration.ofSeconds(1L))
             monitoring {
@@ -86,7 +86,7 @@ internal class InfluxDbSpecificationImplTest {
             name = "my-step"
             connect {
                 server("http://127.0.0.1:8086","DB","org")
-                auth("user","pass")
+                basic("user","pass")
             }
             pollDelay(Duration.ofSeconds(1L))
             monitoring {

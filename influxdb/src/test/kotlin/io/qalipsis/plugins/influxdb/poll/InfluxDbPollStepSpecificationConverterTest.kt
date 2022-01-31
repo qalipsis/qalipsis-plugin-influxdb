@@ -120,7 +120,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
             this.name = "my-step"
             connect{
                 server("http://127.0.0.1:8086","DB", "org")
-                auth("user","pass")
+                basic("user","pass")
             }
             query = "from(bucket: \"test\""
 

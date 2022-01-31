@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.time.Instant
 import java.time.Period
+import org.junit.jupiter.api.Timeout
 
 @WithMockk
 internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrationTest() {
@@ -31,7 +32,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
     private lateinit var stepStartStopContext: StepStartStopContext
 
     @Test
-    //@Timeout(20)
+    @Timeout(20)
     fun `should save data and poll client`() = runBlocking {
 
         client.bucketsApi.findBuckets()

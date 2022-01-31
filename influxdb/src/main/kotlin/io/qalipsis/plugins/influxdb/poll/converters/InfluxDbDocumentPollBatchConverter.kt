@@ -16,9 +16,7 @@ import java.util.concurrent.atomic.AtomicLong
 internal class InfluxDbDocumentPollBatchConverter(
 ) :  DatasourceObjectConverter<InfluxDbQueryResult, InfluxDbPollResults>{
 
-    private fun convert(queries: List<FluxRecord>): List<FluxRecord> {
-        return queries
-    }
+    private fun convert(records: List<FluxRecord>) = records
     override suspend fun supply(
         offset: AtomicLong,
         value: InfluxDbQueryResult,
