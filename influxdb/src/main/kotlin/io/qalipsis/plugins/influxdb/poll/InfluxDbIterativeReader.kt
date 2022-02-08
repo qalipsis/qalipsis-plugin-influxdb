@@ -24,7 +24,7 @@ import java.time.Duration
 import javax.validation.constraints.NotBlank
 
 /**
- * Database reader based upon
+ * Database reader
  *
  * @property pollStatement statement to execute
  * @property pollDelay duration between the end of a poll and the start of the next one
@@ -183,12 +183,12 @@ internal class InfluxDbIterativeReader(
         }
     }
 
+    override suspend fun hasNext(): Boolean = running
+
+    override suspend fun next(): InfluxDbQueryResult = resultsChannel.receive()
+
     private companion object {
         @JvmStatic
         val log = logger()
     }
-
-    override suspend fun hasNext(): Boolean = running
-
-    override suspend fun next(): InfluxDbQueryResult = resultsChannel.receive()
 }

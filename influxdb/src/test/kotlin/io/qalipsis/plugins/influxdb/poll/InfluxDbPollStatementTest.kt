@@ -10,33 +10,41 @@ import io.aerisconsulting.catadioptre.setProperty
 import io.mockk.spyk
 import io.qalipsis.test.assertk.prop
 import io.qalipsis.test.assertk.typedProp
-import io.qalipsis.test.mockk.relaxedMockk
+import org.junit.jupiter.api.Test
 import java.time.Instant
-import org.junit.Test
 
 internal class InfluxDbPollStatementTest {
 
     @Test
     fun `should not have tie-breaker before the first request`() {
         // given
-        val pollStatement = spyk<PollStatement>()
+        val pollStatement = spyk<InfluxDbPollStatement>()
 
         // when only initialization happens
+
         // then
         assertThat(pollStatement).prop("tieBreaker").isNull()
     }
+
     @Test
     fun `should have valid query after first request`() {
         // given
-        val pollStatement = spyk<PollStatement>()
-        pollStatement.saveTieBreakerValueForNextPoll(relaxedMockk())
+        val pollStatement = spyk<InfluxDbPollStatement>()
         val fluxRecord = FluxRecord(1)
-        fluxRecord.setProperty("table", "test")
+        fluxRecord.setProperty("table", 1)
         val now = Instant.now()
-        fluxRecord.setProperty("time", now)
-        val actualQuery = pollStatement.convertQueryForNextPoll("from(bucket: \"test\"", InfluxDbPollStepConnectionImpl(), mutableMapOf())
-        val expectedQuery = Query().query("from(bucket: \"test\" |> range(start: $now) |> filter(fn: (r) => r._time >= $now) ")
+        fluxRecord.values.set("_time", now)
+        pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
+        val actualQuery = pollStatement.convertQueryForNextPoll(
+            "from(bucket: \"test\"",
+            InfluxDbPollStepConnectionImpl(),
+            mutableMapOf()
+        )
+        val expectedQuery =
+            Query().query("from(bucket: \"test\" |> range(start: $now) |> filter(fn: (r) => r._time >= $now) ")
+
         // when only initialization happens
+
         // then
         assertThat(actualQuery).isEqualTo(expectedQuery)
     }
@@ -44,12 +52,17 @@ internal class InfluxDbPollStatementTest {
     @Test
     fun `should reset() clean up tie-breaker`() {
         // given
-        val pollStatement = spyk<PollStatement>()
+        val pollStatement = spyk<InfluxDbPollStatement>()
+        val fluxRecord = FluxRecord(1)
+        val now = Instant.now()
+        fluxRecord.values.set("_time", now)
+
         // when (minor check)
-        pollStatement.saveTieBreakerValueForNextPoll(relaxedMockk())
+        pollStatement.saveTieBreakerValueForNextPoll(fluxRecord)
 
         // then  (minor check)
         assertThat(pollStatement).typedProp<Instant>("tieBreaker").isNotNull()
+        assertThat(pollStatement).typedProp<Instant>("tieBreaker").isEqualTo(now)
 
         // when (major check)
         pollStatement.reset()
@@ -61,9 +74,14 @@ internal class InfluxDbPollStatementTest {
     @Test
     fun `should return proper query`() {
         // given
-        val pollStatement = spyk<PollStatement>()
+        val pollStatement = spyk<InfluxDbPollStatement>()
+
         // then
-        val actualQuery = pollStatement.convertQueryForNextPoll("from(bucket: \"test\"", InfluxDbPollStepConnectionImpl(), mutableMapOf())
+        val actualQuery = pollStatement.convertQueryForNextPoll(
+            "from(bucket: \"test\"",
+            InfluxDbPollStepConnectionImpl(),
+            mutableMapOf()
+        )
         val expectedQuery = Query().query("from(bucket: \"test\" |> range(start: 0) ")
         assertThat(actualQuery).isEqualTo(expectedQuery)
     }

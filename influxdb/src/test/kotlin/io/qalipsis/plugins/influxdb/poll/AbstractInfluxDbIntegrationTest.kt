@@ -4,7 +4,6 @@ import com.influxdb.client.InfluxDBClient
 import com.influxdb.client.InfluxDBClientFactory
 import io.qalipsis.api.logging.LoggerHelper.logger
 import io.qalipsis.test.mockk.WithMockk
-import java.time.Duration
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.testcontainers.containers.InfluxDBContainer
@@ -12,6 +11,7 @@ import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
+import java.time.Duration
 import kotlin.math.pow
 
 
@@ -30,19 +30,26 @@ internal abstract class AbstractInfluxDbIntegrationTest {
         connectionConfig.user = "user"
         connectionConfig.org = "testtesttest"
         connectionConfig.bucket = "test"
-        val influxDBClient = InfluxDBClientFactory.create(connectionConfig.url, "user", "passpasspass".toCharArray())
+
+        val influxDBClient = InfluxDBClientFactory.create(
+            connectionConfig.url,
+            connectionConfig.user,
+            connectionConfig.password.toCharArray()
+        )
 
         val authorizationsApi = influxDBClient
             .authorizationsApi
             .findAuthorizationsByUserName("user")
-        var token :CharArray = charArrayOf()
+        var token: CharArray = charArrayOf()
         for (authorization in authorizationsApi) {
             println("token = " + authorization.token)
             token = authorization.token.toCharArray()
         }
 
-        client = InfluxDBClientFactory.create(connectionConfig.url,
-            token, connectionConfig.org, connectionConfig.bucket)
+        client = InfluxDBClientFactory.create(
+            connectionConfig.url,
+            token, connectionConfig.org, connectionConfig.bucket
+        )
 
     }
 

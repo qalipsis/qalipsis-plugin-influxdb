@@ -2,17 +2,10 @@ package io.qalipsis.plugins.influxdb.poll
 
 import assertk.all
 import assertk.assertThat
-import assertk.assertions.isEqualTo
-import assertk.assertions.isFalse
-import assertk.assertions.isInstanceOf
-import assertk.assertions.isNotNull
-import assertk.assertions.isNull
-import assertk.assertions.isSameAs
-import assertk.assertions.isTrue
+import assertk.assertions.*
 import io.aerisconsulting.catadioptre.getProperty
 import io.aerisconsulting.catadioptre.invokeInvisible
 import io.mockk.every
-import kotlinx.coroutines.channels.Channel
 import io.mockk.spyk
 import io.qalipsis.api.steps.StepCreationContext
 import io.qalipsis.api.steps.StepCreationContextImpl
@@ -26,6 +19,7 @@ import io.qalipsis.test.mockk.relaxedMockk
 import io.qalipsis.test.mockk.verifyOnce
 import io.qalipsis.test.steps.AbstractStepSpecificationConverterTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.runBlockingTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -37,7 +31,7 @@ import java.time.Duration
  */
 @WithMockk
 internal class InfluxDbPollStepSpecificationConverterTest :
-    AbstractStepSpecificationConverterTest< InfluxDbPollStepSpecificationConverter>() {
+    AbstractStepSpecificationConverterTest<InfluxDbPollStepSpecificationConverter>() {
 
     @Test
     override fun `should support expected spec`() {
@@ -59,7 +53,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         val spec = InfluxDbPollStepSpecificationImpl()
         spec.apply {
             this.name = "my-step"
-            connect{
+            connect {
                 server("http://127.0.0.1:8086", "my-database", "my_org")
                 basic("username", "password")
                 enableGzip()
@@ -79,7 +73,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         val spiedConverter = spyk(converter, recordPrivateCalls = true)
 
         val recordsConverter: DatasourceObjectConverter<InfluxDbQueryResult, out Any> = relaxedMockk()
-        every { spiedConverter["buildConverter"](refEq(spec)) } returns recordsConverter
+        every { spiedConverter["buildConverter"]() } returns recordsConverter
 
         // when
         spiedConverter.convert<Unit, Map<String, *>>(
@@ -99,7 +93,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
                 }
             }
         }
-        verifyOnce { spiedConverter["buildConverter"](refEq(spec)) }
+        verifyOnce { spiedConverter["buildConverter"]() }
 
         val channelFactory = creationContext.createdStep!!
             .getProperty<InfluxDbIterativeReader>("reader")
@@ -120,9 +114,9 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         val spec = InfluxDbPollStepSpecificationImpl()
         spec.apply {
             this.name = "my-step"
-            connect{
-                server("http://127.0.0.1:8086","DB", "org")
-                basic("user","pass")
+            connect {
+                server("http://127.0.0.1:8086", "DB", "org")
+                basic("user", "pass")
             }
             query = "from(bucket: \"test\""
 
@@ -139,7 +133,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
         val spiedConverter = spyk(converter, recordPrivateCalls = true)
 
         val recordsConverter: DatasourceObjectConverter<InfluxDbQueryResult, out Any> = relaxedMockk()
-        every { spiedConverter["buildConverter"](refEq(spec)) } returns recordsConverter
+        every { spiedConverter["buildConverter"]() } returns recordsConverter
 
         // when
         spiedConverter.convert<Unit, Map<String, *>>(
@@ -159,7 +153,7 @@ internal class InfluxDbPollStepSpecificationConverterTest :
                 }
             }
         }
-        verifyOnce { spiedConverter["buildConverter"](refEq(spec)) }
+        verifyOnce { spiedConverter["buildConverter"]() }
 
         val channelFactory = creationContext.createdStep!!
             .getProperty<InfluxDbIterativeReader>("reader")
@@ -174,11 +168,11 @@ internal class InfluxDbPollStepSpecificationConverterTest :
 
     @Test
     internal fun `should build batch converter`() {
-        // given
-        val spec = InfluxDbPollStepSpecificationImpl()
+        // given nothing
 
         // when
-        val converter = converter.invokeInvisible<DatasourceObjectConverter<InfluxDbQueryResult, out Any>>("buildConverter", spec)
+        val converter =
+            converter.invokeInvisible<DatasourceObjectConverter<InfluxDbQueryResult, out Any>>("buildConverter")
 
         // then
         assertThat(converter).isInstanceOf(InfluxDbDocumentPollBatchConverter::class)

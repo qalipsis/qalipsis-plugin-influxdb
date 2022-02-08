@@ -11,14 +11,14 @@ import javax.validation.constraints.NotBlank
  * @property tieBreaker - tie breaker instant
  * @author Alex Averyanov
  */
-internal class InfluxDbPollStatement: PollStatement {
+internal class InfluxDbPollStatement : PollStatement {
 
-     private var tieBreaker: Any? = null
+    private var tieBreaker: Any? = null
 
     override fun saveTieBreakerValueForNextPoll(queryResult: FluxRecord) {
         val latestTimeStamp = (queryResult.time)
-        if(tieBreaker != null) {
-            if(latestTimeStamp!!.isAfter(tieBreaker as Instant?)) {
+        if (tieBreaker != null) {
+            if (latestTimeStamp!!.isAfter(tieBreaker as Instant?)) {
                 tieBreaker = latestTimeStamp
             }
         } else {
@@ -26,31 +26,29 @@ internal class InfluxDbPollStatement: PollStatement {
         }
     }
 
-    private fun bindParamsToBuilder(queryBuilder: String, bindParameters: Map<@NotBlank String, Any>) : StringBuilder {
+    private fun bindParamsToBuilder(queryBuilder: String, bindParameters: Map<@NotBlank String, Any>): StringBuilder {
         val queryStringBuilder = StringBuilder(queryBuilder)
-        bindParameters.forEach{ (k, v) ->
+        bindParameters.forEach { (k, v) ->
             queryStringBuilder.append(" |> filter(fn: (r) => r.$k == \"$v\") ")
         }
         return queryStringBuilder
     }
 
-    override fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl,
-                                         bindParameters: Map<@NotBlank String, Any>): Query {
+    override fun convertQueryForNextPoll(
+        queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl,
+        bindParameters: Map<@NotBlank String, Any>
+    ): Query {
         var queryStringBuilder = StringBuilder(queryString)
-
-        return return if(tieBreaker != null) {
-            queryStringBuilder.append(" |> range(start: $tieBreaker) ").append(" |> filter(fn: (r) => r._time >= $tieBreaker) ")
-            if(bindParameters.isNotEmpty()) {
-                queryStringBuilder = StringBuilder(bindParamsToBuilder(queryStringBuilder.toString(), bindParameters))
-            }
-            Query().query(queryStringBuilder.toString())
+        if (tieBreaker != null) {
+            queryStringBuilder.append(" |> range(start: $tieBreaker)")
+                .append(" |> filter(fn: (r) => r._time >= $tieBreaker) ")
         } else {
             queryStringBuilder.append(" |> range(start: 0) ")
-            if(bindParameters.isNotEmpty()) {
-                queryStringBuilder = StringBuilder(bindParamsToBuilder(queryStringBuilder.toString(), bindParameters))
-            }
-            Query().query(queryStringBuilder.toString())
         }
+        if (bindParameters.isNotEmpty()) {
+            queryStringBuilder = StringBuilder(bindParamsToBuilder(queryStringBuilder.toString(), bindParameters))
+        }
+        return Query().query(queryStringBuilder.toString())
     }
 
     override fun reset() {

@@ -17,6 +17,7 @@ import io.qalipsis.plugins.mondodb.converters.InfluxDbDocumentPollBatchConverter
 import jakarta.inject.Named
 
 import kotlinx.coroutines.CoroutineScope
+
 /**
  * [StepSpecificationConverter] from [InfluxDbPollStepSpecificationImpl] to [InfluxDbIterativeReader] for a data source.
  *
@@ -35,11 +36,16 @@ internal class InfluxDbPollStepSpecificationConverter(
 
     override suspend fun <I, O> convert(creationContext: StepCreationContext<InfluxDbPollStepSpecificationImpl>) {
         val spec = creationContext.stepSpecification
-        val pollStatement = buildPollStatement(spec)
+        val pollStatement = buildPollStatement()
         val stepId = spec.name
 
         val reader = InfluxDbIterativeReader(
-            clientFactory = { InfluxDBClientFactory.create(spec.connectionConfiguration.url, spec.connectionConfiguration.user.toCharArray(), spec.connectionConfiguration.password)
+            clientFactory = {
+                InfluxDBClientFactory.create(
+                    spec.connectionConfiguration.url,
+                    spec.connectionConfiguration.user.toCharArray(),
+                    spec.connectionConfiguration.password
+                )
             },
             coroutineScope = coroutineScope,
             connectionConfiguration = spec.connectionConfiguration,
@@ -51,7 +57,7 @@ internal class InfluxDbPollStepSpecificationConverter(
             meterRegistry = supplyIf(spec.monitoringConfiguration.meters) { meterRegistry }
         )
 
-        val converter = buildConverter(spec)
+        val converter = buildConverter()
 
         val step = IterativeDatasourceStep(
             stepId,
@@ -62,15 +68,11 @@ internal class InfluxDbPollStepSpecificationConverter(
         creationContext.createdStep(step)
     }
 
-    fun buildPollStatement(
-        spec: InfluxDbPollStepSpecificationImpl
-    ): PollStatement {
+    fun buildPollStatement(): PollStatement {
         return InfluxDbPollStatement()
     }
 
-    private fun buildConverter(
-        spec: InfluxDbPollStepSpecificationImpl,
-    ): DatasourceObjectConverter<InfluxDbQueryResult, out Any> {
+    private fun buildConverter(): DatasourceObjectConverter<InfluxDbQueryResult, out Any> {
         return InfluxDbDocumentPollBatchConverter()
     }
 }
