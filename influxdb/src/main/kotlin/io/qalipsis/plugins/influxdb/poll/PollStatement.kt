@@ -18,6 +18,7 @@ internal interface PollStatement {
 
     /**
      * Changes the query following the first when the tie-breaker is already known
+     * By default sort with desc = false (ascending order). If you need descending order - desc should be true.
      */
     fun convertQueryForNextPoll(
         queryString: String,

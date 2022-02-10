@@ -34,7 +34,6 @@ internal class InfluxDbPollStatement : PollStatement {
         return queryStringBuilder
     }
 
-    //by default sort with desc = false (ascending order). If you need descending order - it should be true.
     private fun sortedByField(queryBuilder: String, sortField: List<String>, desc: Boolean): StringBuilder {
         val queryStringBuilder = StringBuilder(queryBuilder)
         val sortFields = StringBuilder("")
@@ -42,8 +41,7 @@ internal class InfluxDbPollStatement : PollStatement {
             sortFields.append(", \"$k\"")
         }
         if (!desc) {
-            return queryStringBuilder.append(" |> sort(columns: [${sortFields.toString().substring(2)}]) ")
-//            return queryStringBuilder.append(" |> sort(columns: [\"_time\"${sortFields.toString()}]) ")
+            return queryStringBuilder.append(" |> sort(columns: [\"_time\"${sortFields.toString()}]) ")
         } else {
             return queryStringBuilder.append(" |> sort(columns: [\"_time\"${sortFields.toString()}], desc:true) ")
         }

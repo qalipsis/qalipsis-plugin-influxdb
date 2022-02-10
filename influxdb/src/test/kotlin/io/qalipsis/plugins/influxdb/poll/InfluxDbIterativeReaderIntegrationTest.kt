@@ -36,7 +36,7 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
             clientFactory = { client },
             query = queryString,
             bindParameters = mutableMapOf(),
-            sortFields = mutableListOf("_value", "_time"),
+            sortFields = mutableListOf(),
             desc = false,
             pollStatement = pollStatement,
             pollDelay = Duration.ofMillis(300),
