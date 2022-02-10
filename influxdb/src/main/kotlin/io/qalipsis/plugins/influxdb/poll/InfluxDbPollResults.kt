@@ -10,7 +10,7 @@ import com.influxdb.query.FluxRecord
  *
  * @author Alex Averyanov
  */
-data class InfluxDbPollResults(
+class InfluxDbPollResults(
     val results: List<FluxRecord>,
     val meters: InfluxDbQueryMeters
 ) : Iterable<FluxRecord> {

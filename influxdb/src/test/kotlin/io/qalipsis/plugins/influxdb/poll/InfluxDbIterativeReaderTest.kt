@@ -25,8 +25,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
-import java.time.Duration
 import org.junit.jupiter.api.extension.RegisterExtension
+import java.time.Duration
 
 @WithMockk
 internal class InfluxDbIterativeReaderTest {
@@ -57,7 +57,7 @@ internal class InfluxDbIterativeReaderTest {
     @Test
     @Timeout(3)
     internal fun `should be restartable`() = testDispatcherProvider.run {
-        val connectionConfig  = InfluxDbPollStepConnectionImpl()
+        val connectionConfig = InfluxDbPollStepConnectionImpl()
 
         connectionConfig.password = "pass"
         connectionConfig.url = "http://127.0.0.1:8086"
@@ -68,8 +68,10 @@ internal class InfluxDbIterativeReaderTest {
         val reader = spyk(
             InfluxDbIterativeReader(
                 clientFactory = clientBuilder,
-                query =  "SELECT * FROM cpu WHERE idle  = \$idle" ,
+                query = "SELECT * FROM cpu WHERE idle  = \$idle",
                 bindParameters = mapOf("idle" to 90),
+                sortFields = listOf(),
+                desc = false,
                 pollStatement = pollStatement,
                 pollDelay = Duration.ofMillis(300),
                 resultsChannelFactory = resultsChannelFactory,
@@ -120,25 +122,27 @@ internal class InfluxDbIterativeReaderTest {
     @Test
     @Timeout(10)
     fun `should be empty before start`() = testDispatcherProvider.run {
-        val connectionConfig  = InfluxDbPollStepConnectionImpl()
+        val connectionConfig = InfluxDbPollStepConnectionImpl()
 
         connectionConfig.password = "pass"
         connectionConfig.url = "http://127.0.0.1:8086"
         connectionConfig.user = "name"
         connectionConfig.bucket = "db"
         // given
-        val reader =  spyk(
-                InfluxDbIterativeReader(
-                    clientFactory = clientBuilder,
-                    query =  "SELECT * FROM cpu WHERE idle  = \$idle" ,
-                    bindParameters = mapOf("idle" to 90),
-                    pollStatement = pollStatement,
-                    pollDelay = Duration.ofMillis(300),
-                    resultsChannelFactory = resultsChannelFactory,
-                    coroutineScope = this,
-                    eventsLogger = eventsLogger,
-                    meterRegistry = meterRegistry,
-                    connectionConfiguration = connectionConfig
+        val reader = spyk(
+            InfluxDbIterativeReader(
+                clientFactory = clientBuilder,
+                query = "SELECT * FROM cpu WHERE idle  = \$idle",
+                bindParameters = mapOf("idle" to 90),
+                sortFields = listOf(),
+                desc = false,
+                pollStatement = pollStatement,
+                pollDelay = Duration.ofMillis(300),
+                resultsChannelFactory = resultsChannelFactory,
+                coroutineScope = this,
+                eventsLogger = eventsLogger,
+                meterRegistry = meterRegistry,
+                connectionConfiguration = connectionConfig
             ), recordPrivateCalls = true
         )
 
@@ -151,7 +155,7 @@ internal class InfluxDbIterativeReaderTest {
     @Timeout(20)
     fun `should poll at least twice after start`() = testDispatcherProvider.run {
         // given
-        val connectionConfig  = InfluxDbPollStepConnectionImpl()
+        val connectionConfig = InfluxDbPollStepConnectionImpl()
 
         connectionConfig.password = "pass"
         connectionConfig.url = "http://127.0.0.1:8086"
@@ -160,8 +164,10 @@ internal class InfluxDbIterativeReaderTest {
         val reader = spyk(
             InfluxDbIterativeReader(
                 clientFactory = clientBuilder,
-                query =  "SELECT * FROM cpu WHERE idle  = \$idle",
+                query = "SELECT * FROM cpu WHERE idle  = \$idle",
                 bindParameters = mapOf("idle" to 90),
+                sortFields = listOf(),
+                desc = false,
                 pollStatement = pollStatement,
                 pollDelay = Duration.ofMillis(300),
                 resultsChannelFactory = resultsChannelFactory,

@@ -44,6 +44,8 @@ internal class InfluxDbIterativeReader(
     private val pollDelay: Duration,
     private val query: String,
     private val bindParameters: Map<@NotBlank String, Any>,
+    private val sortFields: List<String>,
+    private val desc: Boolean = false,
     private val resultsChannelFactory: () -> Channel<InfluxDbQueryResult> = { Channel(Channel.UNLIMITED) },
     private val eventsLogger: EventsLogger?,
     private val meterRegistry: MeterRegistry?
@@ -136,12 +138,13 @@ internal class InfluxDbIterativeReader(
 
             eventsLogger?.trace("$eventPrefix.polling", tags = context.toEventTags())
             val requestStart = System.nanoTime()
-
-            client.queryApi.query(pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters),
+            client.queryApi.query(
+                pollStatement.convertQueryForNextPoll(query, connectionConfiguration, bindParameters, sortFields, desc),
                 { _: Cancellable, fluxRecord: FluxRecord ->
                     records.add(fluxRecord)
                     log.trace { "Received $fluxRecord" }
-                }, {
+                },
+                {
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
                     eventsLogger?.warn(
                         "$eventPrefix.failure",
@@ -150,7 +153,7 @@ internal class InfluxDbIterativeReader(
                     )
                     failureCounter?.increment()
                     latch.cancel()
-                } ,
+                },
                 {
                     pollStatement.saveTieBreakerValueForNextPoll(records[records.size - 1])
                     val duration = Duration.ofNanos(System.nanoTime() - requestStart)
@@ -172,7 +175,6 @@ internal class InfluxDbIterativeReader(
                     latch.cancel()
                 },
             )
-
             latch.await()
         } catch (e: InterruptedException) {
             // The exception is ignored.

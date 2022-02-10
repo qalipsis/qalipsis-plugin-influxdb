@@ -50,7 +50,6 @@ internal abstract class AbstractInfluxDbIntegrationTest {
             connectionConfig.url,
             token, connectionConfig.org, connectionConfig.bucket
         )
-
     }
 
     @AfterAll
@@ -73,11 +72,10 @@ internal abstract class AbstractInfluxDbIntegrationTest {
                 withEnv("DOCKER_INFLUXDB_INIT_PASSWORD", "passpasspass")
                 withEnv("DOCKER_INFLUXDB_INIT_ORG", "testtesttest")
                 withEnv("DOCKER_INFLUXDB_INIT_BUCKET", "test")
-                withEnv("DOCKER_INFLUXDB_INIT_RETENTION", "2d")
+                withEnv("DOCKER_INFLUXDB_INIT_RETENTION", "2000d")
             }
 
         @JvmStatic
         val log = logger()
     }
-
 }

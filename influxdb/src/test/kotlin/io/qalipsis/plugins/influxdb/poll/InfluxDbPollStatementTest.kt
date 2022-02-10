@@ -38,7 +38,9 @@ internal class InfluxDbPollStatementTest {
         val actualQuery = pollStatement.convertQueryForNextPoll(
             "from(bucket: \"test\"",
             InfluxDbPollStepConnectionImpl(),
-            mutableMapOf()
+            mutableMapOf(),
+            mutableListOf(),
+            false
         )
         val expectedQuery =
             Query().query("from(bucket: \"test\" |> range(start: $now) |> filter(fn: (r) => r._time >= $now) ")
@@ -80,7 +82,9 @@ internal class InfluxDbPollStatementTest {
         val actualQuery = pollStatement.convertQueryForNextPoll(
             "from(bucket: \"test\"",
             InfluxDbPollStepConnectionImpl(),
-            mutableMapOf()
+            mutableMapOf(),
+            mutableListOf(),
+            false
         )
         val expectedQuery = Query().query("from(bucket: \"test\" |> range(start: 0) ")
         assertThat(actualQuery).isEqualTo(expectedQuery)

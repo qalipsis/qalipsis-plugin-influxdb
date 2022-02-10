@@ -2,19 +2,26 @@ package io.qalipsis.plugins.influxdb.poll
 
 import io.qalipsis.api.annotations.Spec
 import io.qalipsis.api.scenario.StepSpecificationRegistry
-import io.qalipsis.api.steps.*
+import io.qalipsis.api.steps.AbstractStepSpecification
+import io.qalipsis.api.steps.BroadcastSpecification
+import io.qalipsis.api.steps.LoopableSpecification
+import io.qalipsis.api.steps.SingletonConfiguration
+import io.qalipsis.api.steps.SingletonType
+import io.qalipsis.api.steps.StepMonitoringConfiguration
+import io.qalipsis.api.steps.StepSpecification
+import io.qalipsis.api.steps.UnicastSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbScenarioSpecification
 import io.qalipsis.plugins.influxdb.InfluxdbStepSpecification
 import java.time.Duration
 import javax.validation.constraints.NotBlank
 import javax.validation.constraints.NotNull
 
+
 @Spec
 interface InfluxDbPollStepSpecification :
     StepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     InfluxdbStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     LoopableSpecification, UnicastSpecification, BroadcastSpecification {
-
 
     /**
      * Configures the connection to the InfluxDB Server.
@@ -45,6 +52,9 @@ interface InfluxDbPollStepSpecification :
      */
     fun monitoring(monitoring: StepMonitoringConfiguration.() -> Unit)
 
+    fun desc(desc: Boolean)
+
+    fun sortFields(param: List<String>)
 }
 
 /**
@@ -86,6 +96,8 @@ internal class InfluxDbPollStepSpecificationImpl(
     internal var pollPeriod: Duration = Duration.ofSeconds(10L)
 
     internal val bindParameters: MutableMap<@NotBlank String, Any> = mutableMapOf()
+    internal val sortFields: MutableList<String> = mutableListOf()
+    internal var desc: Boolean = false
 
     override fun connect(connection: InfluxDbPollStepConnection.() -> Unit) {
         this.connectionConfiguration.connection()
@@ -98,6 +110,15 @@ internal class InfluxDbPollStepSpecificationImpl(
     override fun bindParameters(vararg param: Pair<String, Any>) {
         this.bindParameters.clear()
         this.bindParameters.putAll(param)
+    }
+
+    override fun sortFields(param: List<String>) {
+        this.sortFields.clear()
+        this.sortFields.addAll(param)
+    }
+
+    override fun desc(desc: Boolean) {
+        this.desc = desc
     }
 
     override fun pollDelay(delay: Duration) {

@@ -1,6 +1,7 @@
 package io.qalipsis.plugins.influxdb.poll
 
 import com.influxdb.client.InfluxDBClientFactory
+import com.influxdb.client.InfluxDBClientOptions
 import io.micrometer.core.instrument.MeterRegistry
 import io.qalipsis.api.Executors
 import io.qalipsis.api.annotations.StepConverter
@@ -42,9 +43,14 @@ internal class InfluxDbPollStepSpecificationConverter(
         val reader = InfluxDbIterativeReader(
             clientFactory = {
                 InfluxDBClientFactory.create(
-                    spec.connectionConfiguration.url,
-                    spec.connectionConfiguration.user.toCharArray(),
-                    spec.connectionConfiguration.password
+                    InfluxDBClientOptions.builder()
+                        .url(spec.connectionConfiguration.url)
+                        .authenticate(
+                            spec.connectionConfiguration.user,
+                            spec.connectionConfiguration.password.toCharArray()
+                        )
+                        .org(spec.connectionConfiguration.org)
+                        .build()
                 )
             },
             coroutineScope = coroutineScope,
@@ -52,6 +58,8 @@ internal class InfluxDbPollStepSpecificationConverter(
             pollStatement = pollStatement,
             query = spec.query,
             bindParameters = spec.bindParameters,
+            sortFields = spec.sortFields,
+            desc = spec.desc,
             pollDelay = spec.pollPeriod,
             eventsLogger = supplyIf(spec.monitoringConfiguration.events) { eventsLogger },
             meterRegistry = supplyIf(spec.monitoringConfiguration.meters) { meterRegistry }

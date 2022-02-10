@@ -7,19 +7,19 @@ import assertk.assertions.index
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import com.influxdb.client.domain.WritePrecision
-import com.influxdb.client.write.Point
 import com.influxdb.query.FluxRecord
 import io.aerisconsulting.catadioptre.coInvokeInvisible
 import io.qalipsis.test.assertk.prop
 import io.qalipsis.test.mockk.relaxedMockk
-import java.time.Duration
-import java.time.Instant
-import java.time.Period
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import java.time.Duration
+import java.time.Instant
+import java.time.Period
+
 
 internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrationTest() {
 
@@ -35,7 +35,9 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         reader = InfluxDbIterativeReader(
             clientFactory = { client },
             query = queryString,
-            bindParameters = mutableMapOf("_value" to "55"),
+            bindParameters = mutableMapOf(),
+            sortFields = mutableListOf("_value", "_time"),
+            desc = false,
             pollStatement = pollStatement,
             pollDelay = Duration.ofMillis(300),
             resultsChannelFactory = { Channel(2) }, // The capacity is perhaps to small, preventing from data to be written by the poll action.
@@ -46,19 +48,16 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         )
         reader.init()
 
-        val point1: Point = Point.measurement("temperature")
-            .addTag("location", "west1")
-            .addField("idle", "55")
-            .time(Instant.now().minus(Period.ofDays(1)), WritePrecision.MS)
         val writeApi = client.writeApiBlocking
-        writeApi.writePoint(point1)
+
+        val data1 = "moves,host1=host1 idle=\"55\" " + Instant.now().minus(Period.ofDays(2)).toEpochMilli() * 1000000
+        writeApi.writeRecord("test", "testtesttest", WritePrecision.NS, data1)
 
         reader.coInvokeInvisible<Unit>("poll", client)
-        val point2: Point = Point.measurement("temperature")
-            .addTag("location", "west2")
-            .addField("idle", "55")
-            .time(Instant.now().toEpochMilli(), WritePrecision.MS)
-        writeApi.writePoint(point2)
+
+        val data2 = "moves,host2=host2 idle=\"80\" " + Instant.now().minus(Period.ofDays(1)).toEpochMilli() * 1000000
+        writeApi.writeRecord("test", "testtesttest", WritePrecision.NS, data2)
+
         reader.coInvokeInvisible<Unit>("poll", client)
         reader.coInvokeInvisible<Unit>("poll", client)
 
@@ -66,20 +65,20 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
         val received2 = reader.next()
         val received3 = reader.next()
 
-        Assertions.assertEquals("55", received2.results[0].value)
-        Assertions.assertEquals("west1", received2.results[0].values["location"])
+        Assertions.assertEquals("55", received1.results[0].value)
+        Assertions.assertEquals("host1", received1.results[0].values["host1"])
         assertThat(received1.results).all {
-              hasSize(1)
-              index(0).isInstanceOf(FluxRecord::class).all {
-                  prop("values").isNotNull()
-              }
+            hasSize(1)
+            index(0).isInstanceOf(FluxRecord::class).all {
+                prop("values").isNotNull()
+            }
         }
 
         Assertions.assertEquals("55", received2.results[0].value)
-        Assertions.assertEquals("west1", received2.results[0].values["location"])
+        Assertions.assertEquals("host1", received2.results[0].values["host1"])
 
-        Assertions.assertEquals("55", received2.results[1].value)
-        Assertions.assertEquals("west2", received2.results[1].values["location"])
+        Assertions.assertEquals("80", received2.results[1].value)
+        Assertions.assertEquals("host2", received2.results[1].values["host2"])
         assertThat(received2.results).all {
             hasSize(2)
 
@@ -91,8 +90,8 @@ internal class InfluxDbIterativeReaderIntegrationTest : AbstractInfluxDbIntegrat
             }
         }
 
-        Assertions.assertEquals("55", received3.results[0].value)
-        Assertions.assertEquals("west2", received3.results[0].values["location"])
+        Assertions.assertEquals("80", received3.results[0].value)
+        Assertions.assertEquals("host2", received3.results[0].values["host2"])
         assertThat(received3.results).all {
             hasSize(1)
             index(0).isInstanceOf(FluxRecord::class).all {

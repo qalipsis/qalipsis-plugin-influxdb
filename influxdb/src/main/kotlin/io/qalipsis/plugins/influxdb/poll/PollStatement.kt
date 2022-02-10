@@ -19,7 +19,13 @@ internal interface PollStatement {
     /**
      * Changes the query following the first when the tie-breaker is already known
      */
-    fun convertQueryForNextPoll(queryString: String, connectionConfiguration: InfluxDbPollStepConnectionImpl, bindParameters: Map<@NotBlank String, Any>): Query
+    fun convertQueryForNextPoll(
+        queryString: String,
+        connectionConfiguration: InfluxDbPollStepConnectionImpl,
+        bindParameters: Map<@NotBlank String, Any>,
+        sortField: List<String>,
+        desc: Boolean
+    ): Query
 
     /**
      * Resets the instance into the initial state to be ready for a new poll sequence starting from scratch.
