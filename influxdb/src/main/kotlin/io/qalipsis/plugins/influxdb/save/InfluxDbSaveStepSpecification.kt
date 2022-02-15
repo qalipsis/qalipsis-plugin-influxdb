@@ -14,6 +14,8 @@ import javax.validation.constraints.NotBlank
 
 /**
  * Specification for a [io.qalipsis.plugins.influxdb.save.InfluxDbSaveStep] to save data to a InfluxDB.
+ *
+ * @author Palina Bril
  */
 interface InfluxDbSaveStepSpecification<I> :
     StepSpecification<I, I, InfluxDbSaveStepSpecification<I>>,
@@ -22,7 +24,7 @@ interface InfluxDbSaveStepSpecification<I> :
     /**
      * Configures the connection to the InfluxDb server.
      */
-    fun connect(connectionConfiguration: InfluxDbSaveStepConnectionImpl)
+    fun connect(connectionConfiguration: InfluxDbSaveStepConnectionImpl.() -> Unit)
 
     /**
      * Defines the statement to execute when saving.
@@ -45,7 +47,7 @@ internal class InfluxDbSaveStepSpecificationImpl<I> :
     InfluxDbSaveStepSpecification<I>,
     AbstractStepSpecification<I, I, InfluxDbSaveStepSpecification<I>>() {
 
-    internal lateinit var connectionConfiguration: InfluxDbSaveStepConnectionImpl
+    internal var connectionConfig = InfluxDbSaveStepConnectionImpl()
 
     internal lateinit var clientBuilder: (() -> InfluxDBClient)
 
@@ -53,17 +55,17 @@ internal class InfluxDbSaveStepSpecificationImpl<I> :
 
     internal var monitoringConfig = StepMonitoringConfiguration()
 
-    override fun connect(connectionConfiguration: InfluxDbSaveStepConnectionImpl) {
-        this.connectionConfiguration = connectionConfiguration
+    override fun connect(connectionConfiguration: InfluxDbSaveStepConnectionImpl.() -> Unit) {
+        connectionConfig.connectionConfiguration();
         clientBuilder = {
             InfluxDBClientFactory.create(
                 InfluxDBClientOptions.builder()
-                    .url(this.connectionConfiguration.url)
+                    .url(connectionConfig.url)
                     .authenticate(
-                        this.connectionConfiguration.user,
-                        this.connectionConfiguration.password.toCharArray()
+                        connectionConfig.user,
+                        connectionConfig.password.toCharArray()
                     )
-                    .org(this.connectionConfiguration.org)
+                    .org(connectionConfig.org)
                     .build()
             )
         }
@@ -88,9 +90,9 @@ internal class InfluxDbSaveStepSpecificationImpl<I> :
  */
 @Spec
 data class InfluxDbSavePointConfiguration<I>(
-    internal var bucket: suspend (ctx: StepContext<*, *>, input: I) -> String = { _, _ -> "" },
-    internal var organization: suspend (ctx: StepContext<*, *>, input: I) -> String = { _, _ -> "" },
-    internal var points: suspend (ctx: StepContext<*, *>, input: I) -> List<Point> = { _, _ -> listOf() }
+    var bucket: suspend (ctx: StepContext<*, *>, input: I) -> String = { _, _ -> "" },
+    var organization: suspend (ctx: StepContext<*, *>, input: I) -> String = { _, _ -> "" },
+    var points: suspend (ctx: StepContext<*, *>, input: I) -> List<Point> = { _, _ -> listOf() }
 )
 
 /**
@@ -117,7 +119,7 @@ interface InfluxDbSaveStepConnection {
     fun server(url: String, bucket: String, org: String)
 
     /**
-     * Configures the users settings.
+     * Configures the basic authentication.
      */
     fun basic(user: String, password: String)
 

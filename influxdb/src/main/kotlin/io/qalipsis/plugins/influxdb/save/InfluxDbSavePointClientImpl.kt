@@ -1,6 +1,9 @@
 package io.qalipsis.plugins.influxdb.save
 
 import com.influxdb.client.InfluxDBClient
+import com.influxdb.client.WriteApi
+import com.influxdb.client.WriteApiBlocking
+import com.influxdb.client.WriteOptions
 import com.influxdb.client.write.Point
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
@@ -9,9 +12,6 @@ import io.qalipsis.api.context.StepStartStopContext
 import io.qalipsis.api.events.EventsLogger
 import io.qalipsis.api.lang.tryAndLog
 import io.qalipsis.api.logging.LoggerHelper.logger
-import io.qalipsis.api.sync.Slot
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -23,15 +23,17 @@ import java.util.concurrent.TimeUnit
  * @property eventsLogger the logger for events to track what happens during save step execution.
  * @property meterRegistry registry for the meters.
  *
+ * @author Palina Bril
  */
 internal class InfluxDbSavePointClientImpl(
-    private val ioCoroutineScope: CoroutineScope,
     private val clientBuilder: () -> InfluxDBClient,
     private var eventsLogger: EventsLogger?,
     private val meterRegistry: MeterRegistry?
 ) : InfluxDbSavePointClient {
 
     private lateinit var client: InfluxDBClient
+
+    private lateinit var writeApi: WriteApiBlocking
 
     private val eventPrefix = "influxdb.save"
 
@@ -47,6 +49,7 @@ internal class InfluxDbSavePointClientImpl(
 
     override suspend fun start(context: StepStartStopContext) {
         client = clientBuilder()
+        writeApi = client.writeApiBlocking
         meterRegistry?.apply {
             val tags = context.toMetersTags()
             pointsCounter = counter("$meterPrefix-saving-points", tags)
@@ -62,46 +65,21 @@ internal class InfluxDbSavePointClientImpl(
         points: List<Point>,
         contextEventTags: Map<String, String>
     ): InfluxDbSaveQueryMeters {
-        val result = Slot<Result<InfluxDbSaveQueryMeters>>()
         eventsLogger?.debug("$eventPrefix.saving-points", points.size, tags = contextEventTags)
-        var successSavedPoints = 0
-        var failedSavedPoints = 0
         pointsCounter?.increment(points.size.toDouble())
         val requestStart = System.nanoTime()
-        points.forEach {
-            try {
-                client.writeApiBlocking.writePoint(bucketName, orgName, it)
-                successSavedPoints++
-            } catch (e: Exception) {
-                failedSavedPoints++
-                ioCoroutineScope.launch {
-                    result.set(Result.failure(e))
-                }
-            }
-        }
-        val timeToResponse = System.nanoTime() - requestStart
-        eventsLogger?.info(
-            "${eventPrefix}.time-to-response",
-            Duration.ofMillis(timeToResponse),
-            tags = contextEventTags
+        writeApi.writePoints(bucketName, orgName, points)
+        val timeToResponseNano = System.nanoTime() - requestStart
+        val timeToResponse = Duration.ofNanos(timeToResponseNano)
+        eventsLogger?.info("${eventPrefix}.time-to-response", timeToResponse, tags = contextEventTags)
+        eventsLogger?.info("${eventPrefix}.successes", points.size, tags = contextEventTags)
+        successCounter?.increment(points.size.toDouble())
+        this.timeToResponse?.record(timeToResponseNano, TimeUnit.NANOSECONDS)
+        return InfluxDbSaveQueryMeters(
+            failedPoints = 0,
+            timeToResult = timeToResponse,
+            savedPoints = points.size
         )
-        eventsLogger?.info("${eventPrefix}.successes", successSavedPoints, tags = contextEventTags)
-        if (failedSavedPoints > 0) {
-            eventsLogger?.info("${eventPrefix}.failures", failedSavedPoints, tags = contextEventTags)
-            failureCounter?.increment(failedSavedPoints.toDouble())
-        }
-
-        val influxDbSaveStepMeters = InfluxDbSaveQueryMeters(
-            failedPoints = failedSavedPoints,
-            timeToResult = Duration.ofMillis(timeToResponse),
-            savedPoints = successSavedPoints
-        )
-        successCounter?.increment(influxDbSaveStepMeters.savedPoints.toDouble())
-        this.timeToResponse?.record(timeToResponse, TimeUnit.NANOSECONDS)
-        ioCoroutineScope.launch {
-            result.set(Result.success(influxDbSaveStepMeters))
-        }
-        return result.get().getOrThrow()
     }
 
     override suspend fun stop(context: StepStartStopContext) {

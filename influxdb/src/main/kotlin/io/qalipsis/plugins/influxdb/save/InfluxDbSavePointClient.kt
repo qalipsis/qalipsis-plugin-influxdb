@@ -7,6 +7,7 @@ import io.qalipsis.api.context.StepStartStopContext
 /**
  * Client to save records to InfluxDb.
  *
+ * @author Palina Bril
  */
 internal interface InfluxDbSavePointClient {
 

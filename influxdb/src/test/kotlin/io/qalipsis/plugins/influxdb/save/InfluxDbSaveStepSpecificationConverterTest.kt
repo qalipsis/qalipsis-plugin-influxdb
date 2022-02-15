@@ -10,9 +10,7 @@ import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isSameAs
 import assertk.assertions.isTrue
-import com.influxdb.client.InfluxDBClient
 import com.influxdb.client.write.Point
-import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.spyk
 import io.qalipsis.api.context.StepContext
 import io.qalipsis.api.steps.StepCreationContext
@@ -40,22 +38,6 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
         )
     }
 
-    var connectionConfig: InfluxDbSaveStepConnectionImpl = init()
-
-    @RelaxedMockK
-    private lateinit var clientBuilder: () -> InfluxDBClient
-
-    private fun init(): InfluxDbSaveStepConnectionImpl {
-        connectionConfig = InfluxDbSaveStepConnectionImpl()
-        connectionConfig.url = "http://localhost:8080"
-        connectionConfig.password = "passpasspass"
-        connectionConfig.user = "user"
-        connectionConfig.org = "testtesttest"
-        connectionConfig.bucket = "test"
-        return connectionConfig
-    }
-
-
     @Test
     override fun `should not support unexpected spec`() {
         assertThat(converter.support(relaxedMockk()))
@@ -66,7 +48,6 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
     override fun `should support expected spec`() {
         assertThat(converter.support(relaxedMockk<InfluxDbSaveStepSpecificationImpl<*>>()))
             .isTrue()
-
     }
 
     @Test
@@ -75,7 +56,13 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
         val spec = InfluxDbSaveStepSpecificationImpl<Any>()
         spec.also {
             it.name = "influxdb-save-step"
-            it.connect(connectionConfig)
+            it.connect {
+                url = "http://localhost:8080"
+                password = "passpasspass"
+                user = "user"
+                org = "testtesttest"
+                bucket = "test"
+            }
             it.query {
                 bucket = bucketName
                 organization = orgName
@@ -84,7 +71,6 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
             it.retryPolicy = mockedRetryPolicy
             it.monitoring {
                 meters = true
-                events = true
             }
         }
         val creationContext = StepCreationContextImpl(scenarioSpecification, directedAcyclicGraph, spec)
@@ -100,7 +86,7 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
             prop("influxDbSavePointClient").all {
                 prop("clientBuilder").isNotNull()
                 prop("meterRegistry").isNotNull().isSameAs(meterRegistry)
-                prop("eventsLogger").isNotNull().isSameAs(eventsLogger)
+                prop("eventsLogger").isNull()
             }
             prop("retryPolicy").isNotNull()
             prop("bucketName").isEqualTo(bucketName)
@@ -114,7 +100,13 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
         // given
         val spec = InfluxDbSaveStepSpecificationImpl<Any>()
         spec.also {
-            it.connect(connectionConfig)
+            it.connect {
+                url = "http://localhost:8080"
+                password = "passpasspass"
+                user = "user"
+                org = "testtesttest"
+                bucket = "test"
+            }
             it.query {
                 bucket = bucketName
                 organization = orgName

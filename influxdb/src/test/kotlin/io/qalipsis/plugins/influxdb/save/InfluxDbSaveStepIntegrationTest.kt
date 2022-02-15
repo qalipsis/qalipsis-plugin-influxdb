@@ -33,6 +33,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.junit.jupiter.api.assertThrows
 import org.testcontainers.containers.InfluxDBContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.junit.jupiter.Container
@@ -49,26 +50,16 @@ import kotlin.math.pow
 internal class InfluxDbSaveStepIntegrationTest {
 
     private lateinit var client: InfluxDBClient
-    protected val connectionConfig = InfluxDbSaveStepConnectionImpl()
 
     val testDispatcherProvider = TestDispatcherProvider()
 
     @BeforeAll
     fun init() {
-        connectionConfig.url = influxDBContainer.url
-        connectionConfig.password = "passpasspass"
-        connectionConfig.user = "user"
-        connectionConfig.org = "testtesttest"
-        connectionConfig.bucket = "test"
-
         client = InfluxDBClientFactory.create(
             InfluxDBClientOptions.builder()
-                .url(connectionConfig.url)
-                .authenticate(
-                    connectionConfig.user,
-                    connectionConfig.password.toCharArray()
-                )
-                .org(connectionConfig.org)
+                .url(influxDBContainer.url)
+                .authenticate("user", "passpasspass".toCharArray())
+                .org("testtesttest")
                 .build()
         )
     }
@@ -82,7 +73,7 @@ internal class InfluxDbSaveStepIntegrationTest {
 
     private val recordsCount = relaxedMockk<Counter>()
 
-    private val failureCounter = relaxedMockk<Counter>()
+    private val successCounter = relaxedMockk<Counter>()
 
     private val eventsLogger = relaxedMockk<EventsLogger>()
 
@@ -104,7 +95,6 @@ internal class InfluxDbSaveStepIntegrationTest {
             .addField("key1", "val1")
             .time(Instant.now().toEpochMilli() * 1000000, WritePrecision.NS)
         val saveClient = InfluxDbSavePointClientImpl(
-            ioCoroutineScope = this,
             clientBuilder = { client },
             meterRegistry = meterRegistry,
             eventsLogger = eventsLogger
@@ -113,7 +103,7 @@ internal class InfluxDbSaveStepIntegrationTest {
 
         saveClient.start(startStopContext)
 
-        val resultOfExecute = saveClient.execute(connectionConfig.bucket, connectionConfig.org, listOf(point), tags)
+        val resultOfExecute = saveClient.execute("test", "testtesttest", listOf(point), tags)
 
         assertThat(resultOfExecute).isInstanceOf(InfluxDbSaveQueryMeters::class.java).all {
             prop("savedPoints").isEqualTo(1)
@@ -142,38 +132,35 @@ internal class InfluxDbSaveStepIntegrationTest {
 
     @Test
     @Timeout(10)
-    fun `should count failures when sending points with date earlier than retantion policy allows`(): Unit = testDispatcherProvider.run {
-        val metersTags = relaxedMockk<Tags>()
-        val meterRegistry = relaxedMockk<MeterRegistry> {
-            every { counter("influxdb-save-failures", refEq(metersTags)) } returns failureCounter
-        }
-        val startStopContext = relaxedMockk<StepStartStopContext> {
-            every { toMetersTags() } returns metersTags
-        }
+    fun `should count failures when sending points with date earlier than retantion policy allows`(): Unit =
+        testDispatcherProvider.run {
+            val metersTags = relaxedMockk<Tags>()
+            val meterRegistry = relaxedMockk<MeterRegistry> {
+                every { counter("influxdb-save-successess", refEq(metersTags)) } returns successCounter
+            }
+            val startStopContext = relaxedMockk<StepStartStopContext> {
+                every { toMetersTags() } returns metersTags
+            }
 
-        val saveClient = InfluxDbSavePointClientImpl(
-            ioCoroutineScope = this,
-            clientBuilder = { client },
-            meterRegistry = meterRegistry,
-            eventsLogger = eventsLogger
-        )
-        val tags: Map<String, String> = emptyMap()
-        saveClient.start(startStopContext)
-
-        saveClient.execute(
-            connectionConfig.bucket,
-            connectionConfig.org,
-            listOf(
-                Point("smth").addTag("tag2", "second").addField("key2", "value2")
-                    .time(Instant.now().minus(Period.ofDays(3)).toEpochMilli() * 1000000, WritePrecision.NS)
-            ), // Retention policy is just 2 days
-            tags
-        )
-        verify {
-            failureCounter.increment(1.0)
+            val saveClient = InfluxDbSavePointClientImpl(
+                clientBuilder = { client },
+                meterRegistry = meterRegistry,
+                eventsLogger = eventsLogger
+            )
+            val tags: Map<String, String> = emptyMap()
+            saveClient.start(startStopContext)
+            assertThrows<Exception> {
+                saveClient.execute(
+                    "test",
+                    "testtesttest",
+                    listOf(
+                        Point("smth").addTag("tag2", "second").addField("key2", "value2")
+                            .time(Instant.now().minus(Period.ofDays(3)).toEpochMilli() * 1000000, WritePrecision.NS)
+                    ), // Retention policy is just 2 days
+                    tags
+                )
+            }
         }
-        confirmVerified(failureCounter)
-    }
 
     private fun fetchResult(
         client: InfluxDBClient, results: ArrayList<Map<String, Any>>,
@@ -186,7 +173,9 @@ internal class InfluxDbSaveStepIntegrationTest {
                     countLatch.blockingDecrement()
                 }, {
                     it.printStackTrace()
-                }, {})
+                }, {
+                }
+            )
         }
     }
 

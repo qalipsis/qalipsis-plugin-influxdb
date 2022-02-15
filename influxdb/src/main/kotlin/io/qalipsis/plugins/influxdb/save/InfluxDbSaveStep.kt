@@ -15,6 +15,7 @@ import io.qalipsis.api.steps.AbstractStep
  * @property orgName closure to generate the string for the organization name.
  * @property pointsFactory closure to generate a list of [Point].
  *
+ * @author Palina Bril
  */
 internal class InfluxDbSaveStep<I>(
     id: StepId,
@@ -37,7 +38,7 @@ internal class InfluxDbSaveStep<I>(
 
         val metrics = influxDbSavePointClient.execute(bucket, organization, points, context.toEventTags())
 
-        context.send(InfluxDBSaveResult(input, metrics))
+        context.send(InfluxDBSaveResult(input, points, metrics))
     }
 
     override suspend fun stop(context: StepStartStopContext) {

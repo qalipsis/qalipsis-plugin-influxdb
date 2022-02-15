@@ -32,13 +32,13 @@ internal class InfluxDbSaveStepSpecificationImplTest {
         val previousStep = DummyStepSpecification()
         previousStep.influxdb().save {
             name = "my-save-step"
-            val connectionConfig = InfluxDbSaveStepConnectionImpl()
-            connectionConfig.url = "http://localhost:8080"
-            connectionConfig.password = "passpasspass"
-            connectionConfig.user = "user"
-            connectionConfig.org = "testtesttest"
-            connectionConfig.bucket = "test"
-            connect(connectionConfig)
+            connect {
+                url = "http://localhost:8080"
+                password = "passpasspass"
+                user = "user"
+                org = "testtesttest"
+                bucket = "test"
+            }
             query {
                 bucket = bucketName
                 organization = orgName
@@ -74,13 +74,13 @@ internal class InfluxDbSaveStepSpecificationImplTest {
         val previousStep = DummyStepSpecification()
         previousStep.influxdb().save {
             name = "my-save-step"
-            val connectionConfig = InfluxDbSaveStepConnectionImpl()
-            connectionConfig.url = "http://localhost:8080"
-            connectionConfig.password = "passpasspass"
-            connectionConfig.user = "user"
-            connectionConfig.org = "testtesttest"
-            connectionConfig.bucket = "test"
-            connect(connectionConfig)
+            connect {
+                url = "http://localhost:8080"
+                password = "passpasspass"
+                user = "user"
+                org = "testtesttest"
+                bucket = "test"
+            }
             query {
                 bucket = bucketName
                 organization = orgName
