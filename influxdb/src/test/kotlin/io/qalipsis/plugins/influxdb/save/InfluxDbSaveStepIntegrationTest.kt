@@ -167,7 +167,7 @@ internal class InfluxDbSaveStepIntegrationTest {
         countLatch: SuspendedCountLatch
     ) {
         client.run {
-            queryApi.query("from(bucket: \"test\") |> range(start: 0) |> filter(fn: (r) => r._value == \"val1\") ",
+            queryApi.query("from(bucket: \"test\") |> range(start: 0) |> filter(fn: (r) => r._value == \"val1\" )",
                 { _: Cancellable, fluxRecord: FluxRecord ->
                     results.add(fluxRecord.values)
                     countLatch.blockingDecrement()
