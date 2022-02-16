@@ -2,8 +2,6 @@ package io.qalipsis.plugins.influxdb.save
 
 import com.influxdb.client.InfluxDBClient
 import com.influxdb.client.WriteApi
-import com.influxdb.client.WriteApiBlocking
-import com.influxdb.client.WriteOptions
 import com.influxdb.client.write.Point
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
@@ -33,7 +31,7 @@ internal class InfluxDbSavePointClientImpl(
 
     private lateinit var client: InfluxDBClient
 
-    private lateinit var writeApi: WriteApiBlocking
+    private lateinit var writeApi: WriteApi
 
     private val eventPrefix = "influxdb.save"
 
@@ -45,17 +43,14 @@ internal class InfluxDbSavePointClientImpl(
 
     private var successCounter: Counter? = null
 
-    private var failureCounter: Counter? = null
-
     override suspend fun start(context: StepStartStopContext) {
         client = clientBuilder()
-        writeApi = client.writeApiBlocking
+        writeApi = client.makeWriteApi()
         meterRegistry?.apply {
             val tags = context.toMetersTags()
             pointsCounter = counter("$meterPrefix-saving-points", tags)
             timeToResponse = timer("$meterPrefix-time-to-response", tags)
             successCounter = counter("$meterPrefix-successes", tags)
-            failureCounter = counter("$meterPrefix-failures", tags)
         }
     }
 
@@ -68,7 +63,9 @@ internal class InfluxDbSavePointClientImpl(
         eventsLogger?.debug("$eventPrefix.saving-points", points.size, tags = contextEventTags)
         pointsCounter?.increment(points.size.toDouble())
         val requestStart = System.nanoTime()
-        writeApi.writePoints(bucketName, orgName, points)
+        writeApi.use {
+            it.writePoints(bucketName, orgName, points)
+        }
         val timeToResponseNano = System.nanoTime() - requestStart
         val timeToResponse = Duration.ofNanos(timeToResponseNano)
         eventsLogger?.info("${eventPrefix}.time-to-response", timeToResponse, tags = contextEventTags)
@@ -87,11 +84,9 @@ internal class InfluxDbSavePointClientImpl(
             remove(pointsCounter!!)
             remove(timeToResponse!!)
             remove(successCounter!!)
-            remove(failureCounter!!)
             pointsCounter = null
             timeToResponse = null
             successCounter = null
-            failureCounter = null
         }
         tryAndLog(log) {
             client.close()

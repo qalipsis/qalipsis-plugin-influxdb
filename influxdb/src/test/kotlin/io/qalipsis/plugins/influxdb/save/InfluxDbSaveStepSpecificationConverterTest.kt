@@ -57,11 +57,15 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
         spec.also {
             it.name = "influxdb-save-step"
             it.connect {
-                url = "http://localhost:8080"
-                password = "passpasspass"
-                user = "user"
-                org = "testtesttest"
-                bucket = "test"
+                server(
+                    url = "http://localhost:8080",
+                    org = "testtesttest",
+                    bucket = "test"
+                )
+                basic(
+                    password = "passpasspass",
+                    user = "user"
+                )
             }
             it.query {
                 bucket = bucketName
@@ -101,11 +105,15 @@ internal class InfluxDbSaveStepSpecificationConverterTest :
         val spec = InfluxDbSaveStepSpecificationImpl<Any>()
         spec.also {
             it.connect {
-                url = "http://localhost:8080"
-                password = "passpasspass"
-                user = "user"
-                org = "testtesttest"
-                bucket = "test"
+                server(
+                    url = "http://localhost:8080",
+                    org = "testtesttest",
+                    bucket = "test"
+                )
+                basic(
+                    password = "passpasspass",
+                    user = "user"
+                )
             }
             it.query {
                 bucket = bucketName
