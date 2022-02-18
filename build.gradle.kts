@@ -69,6 +69,7 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+        jcenter()
         maven {
             name = "maven-central-snapshots"
             setUrl("https://oss.sonatype.org/content/repositories/snapshots")
