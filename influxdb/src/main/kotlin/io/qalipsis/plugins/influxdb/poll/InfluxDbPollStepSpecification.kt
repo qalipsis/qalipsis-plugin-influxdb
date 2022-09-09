@@ -4,6 +4,7 @@ import io.qalipsis.api.annotations.Spec
 import io.qalipsis.api.scenario.StepSpecificationRegistry
 import io.qalipsis.api.steps.AbstractStepSpecification
 import io.qalipsis.api.steps.BroadcastSpecification
+import io.qalipsis.api.steps.ConfigurableStepSpecification
 import io.qalipsis.api.steps.LoopableSpecification
 import io.qalipsis.api.steps.SingletonConfiguration
 import io.qalipsis.api.steps.SingletonType
@@ -22,6 +23,7 @@ import javax.validation.constraints.NotNull
 interface InfluxDbPollStepSpecification :
     StepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     InfluxdbStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
+    ConfigurableStepSpecification<Unit, InfluxDbPollResults, InfluxDbPollStepSpecification>,
     LoopableSpecification, UnicastSpecification, BroadcastSpecification {
 
     /**
