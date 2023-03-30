@@ -17,6 +17,8 @@
 rootProject.name = "qalipsis-plugins-influxdb"
 
 include(
-    "influxdb"
+    "qalipsis-plugin-influxdb"
 )
+
+project(":qalipsis-plugin-influxdb").projectDir = File(rootDir, "influxdb")
 
