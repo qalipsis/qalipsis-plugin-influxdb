@@ -61,10 +61,6 @@
     },
     {
       "moduleLicense": ".*",
-      "moduleName": "io.micrometer:micrometer-bom"
-    },
-    {
-      "moduleLicense": ".*",
       "moduleName": "io.micronaut.*"
     },
     {
