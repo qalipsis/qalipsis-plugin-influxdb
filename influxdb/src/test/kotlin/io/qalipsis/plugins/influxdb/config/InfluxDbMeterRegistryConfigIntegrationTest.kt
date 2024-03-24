@@ -23,18 +23,16 @@ import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.prop
-import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.influx.InfluxConfig
-import io.micrometer.influx.InfluxMeterRegistry
 import io.micronaut.context.ApplicationContext
 import io.micronaut.core.util.StringUtils
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.micronaut.test.support.TestPropertyProvider
-import io.qalipsis.api.meters.MeterRegistryConfiguration
-import io.qalipsis.api.meters.MeterRegistryFactory
+import io.qalipsis.api.meters.MeasurementPublisher
+import io.qalipsis.api.meters.MeasurementPublisherFactory
+import io.qalipsis.plugins.influxdb.meters.InfluxDbMeasurementConfiguration
+import io.qalipsis.plugins.influxdb.meters.InfluxdbMeasurementPublisher
 import io.qalipsis.test.assertk.typedProp
 import jakarta.inject.Inject
-import java.time.Duration
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -51,8 +49,8 @@ internal class InfluxDbMeterRegistryConfigIntegrationTest {
         @Test
         @Timeout(4)
         fun `should start without the registry`() {
-            assertThat(applicationContext.getBeansOfType(InfluxMeterRegistry::class.java)).isEmpty()
-            assertThat(applicationContext.getBeansOfType(MeterRegistryFactory::class.java)).isEmpty()
+            assertThat(applicationContext.getBeansOfType(InfluxdbMeasurementPublisher::class.java)).isEmpty()
+            assertThat(applicationContext.getBeansOfType(MeasurementPublisherFactory::class.java)).isEmpty()
         }
     }
 
@@ -66,36 +64,35 @@ internal class InfluxDbMeterRegistryConfigIntegrationTest {
         @Test
         @Timeout(4)
         internal fun `should start with the configured registry`() {
-            assertThat(applicationContext.getBeansOfType(MeterRegistry::class.java)).any {
-                it.isInstanceOf(InfluxMeterRegistry::class)
+            assertThat(applicationContext.getBeansOfType(MeasurementPublisher::class.java)).any {
+                it.isInstanceOf(InfluxdbMeasurementPublisher::class)
             }
 
-            assertThat(applicationContext.getBean(InfluxMeterRegistry::class.java)).typedProp<InfluxConfig>("config").all {
-                prop(InfluxConfig::prefix).isEqualTo("influxdb")
-                prop(InfluxConfig::db).isEqualTo("qalipsis-meters-db")
-                prop(InfluxConfig::uri).isEqualTo("http://localhost:8085")
-                prop(InfluxConfig::bucket).isEqualTo("qalipsis-event")
-                prop(InfluxConfig::org).isEqualTo("qalipsis")
-                prop(InfluxConfig::userName).isEqualTo("")
-                prop(InfluxConfig::password).isEqualTo("")
-                prop(InfluxConfig::token).isEqualTo("any")
-                prop(InfluxConfig::step).isEqualTo(Duration.ofMinutes(6))
-            }
+            assertThat(applicationContext.getBean(InfluxdbMeasurementPublisher::class.java))
+                .typedProp<InfluxDbMeasurementConfiguration>(
+                    "configuration"
+                )
+                .all {
+                    prop(InfluxDbMeasurementConfiguration::url).isEqualTo("http://localhost:8086")
+                    prop(InfluxDbMeasurementConfiguration::bucket).isEqualTo("qalipsis-meter")
+                    prop(InfluxDbMeasurementConfiguration::org).isEqualTo("qalipsis")
+                    prop(InfluxDbMeasurementConfiguration::userName).isEqualTo("")
+                    prop(InfluxDbMeasurementConfiguration::password).isEqualTo("")
+                }
         }
 
         override fun getProperties(): Map<String, String> {
             return mapOf(
                 "meters.export.influxdb.enabled" to StringUtils.TRUE,
                 "meters.export.influxdb.db" to "qalipsis-meters-db",
-                "meters.export.influxdb.uri" to "http://localhost:8085",
-                "meters.export.influxdb.step" to "PT6M",
+                "meters.export.influxdb.uri" to "http://localhost:8086",
             )
         }
     }
 
     @Nested
     @MicronautTest(environments = ["influxdb"], startApplication = false)
-    inner class WithRegistry : TestPropertyProvider{
+    inner class WithRegistry : TestPropertyProvider {
 
         @Inject
         private lateinit var applicationContext: ApplicationContext
@@ -103,62 +100,47 @@ internal class InfluxDbMeterRegistryConfigIntegrationTest {
         @Test
         @Timeout(4)
         internal fun `should start with the registry`() {
-            assertThat(applicationContext.getBeansOfType(MeterRegistry::class.java)).any {
-                it.isInstanceOf(InfluxMeterRegistry::class)
+            assertThat(applicationContext.getBeansOfType(MeasurementPublisher::class.java)).any {
+                it.isInstanceOf(InfluxdbMeasurementPublisher::class)
             }
 
-            assertThat(applicationContext.getBean(InfluxMeterRegistry::class.java)).typedProp<InfluxConfig>("config").all {
-                prop(InfluxConfig::prefix).isEqualTo("influxdb")
-                prop(InfluxConfig::db).isEqualTo("mydb")
-                prop(InfluxConfig::uri).isEqualTo("http://localhost:8086")
-                prop(InfluxConfig::bucket).isEqualTo("qalipsis-event")
-                prop(InfluxConfig::org).isEqualTo("qalipsis")
-                prop(InfluxConfig::userName).isEqualTo("")
-                prop(InfluxConfig::password).isEqualTo("")
-                prop(InfluxConfig::token).isEqualTo("any")
-                prop(InfluxConfig::step).isEqualTo(Duration.ofSeconds(10))
-            }
-
-            val meterRegistryFactory = applicationContext.getBean(MeterRegistryFactory::class.java)
-            var generatedMeterRegistry = meterRegistryFactory.getRegistry(
-                object : MeterRegistryConfiguration {
-                    override val step: Duration? = null
-                }
+            assertThat(applicationContext.getBean(InfluxdbMeasurementPublisher::class.java)).typedProp<InfluxDbMeasurementConfiguration>(
+                "configuration"
             )
-            assertThat(generatedMeterRegistry).typedProp<InfluxConfig>("config").all {
-                prop(InfluxConfig::prefix).isEqualTo("influxdb")
-                prop(InfluxConfig::db).isEqualTo("mydb")
-                prop(InfluxConfig::uri).isEqualTo("http://localhost:8086")
-                prop(InfluxConfig::bucket).isEqualTo("qalipsis-event")
-                prop(InfluxConfig::org).isEqualTo("qalipsis")
-                prop(InfluxConfig::userName).isEqualTo("")
-                prop(InfluxConfig::password).isEqualTo("")
-                prop(InfluxConfig::token).isEqualTo("any")
-                prop(InfluxConfig::step).isEqualTo(Duration.ofSeconds(10))
-            }
-
-            generatedMeterRegistry = meterRegistryFactory.getRegistry(
-                object : MeterRegistryConfiguration {
-                    override val step: Duration = Duration.ofSeconds(3)
-
+                .all {
+                    prop(InfluxDbMeasurementConfiguration::url).isEqualTo("http://localhost:8086")
+                    prop(InfluxDbMeasurementConfiguration::bucket).isEqualTo("qalipsis-meter")
+                    prop(InfluxDbMeasurementConfiguration::org).isEqualTo("qalipsis")
+                    prop(InfluxDbMeasurementConfiguration::userName).isEqualTo("")
+                    prop(InfluxDbMeasurementConfiguration::password).isEqualTo("")
                 }
-            )
-            assertThat(generatedMeterRegistry).typedProp<InfluxConfig>("config").all {
-                prop(InfluxConfig::prefix).isEqualTo("influxdb")
-                prop(InfluxConfig::db).isEqualTo("mydb")
-                prop(InfluxConfig::uri).isEqualTo("http://localhost:8086")
-                prop(InfluxConfig::bucket).isEqualTo("qalipsis-event")
-                prop(InfluxConfig::org).isEqualTo("qalipsis")
-                prop(InfluxConfig::userName).isEqualTo("")
-                prop(InfluxConfig::password).isEqualTo("")
-                prop(InfluxConfig::token).isEqualTo("any")
-                prop(InfluxConfig::step).isEqualTo(Duration.ofSeconds(3))
-            }
+
+            val measurementPublisherFactory = applicationContext.getBean(MeasurementPublisherFactory::class.java)
+            var generatedMeterPublisherRegistry = measurementPublisherFactory.getPublisher()
+            assertThat(generatedMeterPublisherRegistry).typedProp<InfluxDbMeasurementConfiguration>("configuration")
+                .all {
+                    prop(InfluxDbMeasurementConfiguration::url).isEqualTo("http://localhost:8086")
+                    prop(InfluxDbMeasurementConfiguration::bucket).isEqualTo("qalipsis-meter")
+                    prop(InfluxDbMeasurementConfiguration::org).isEqualTo("qalipsis")
+                    prop(InfluxDbMeasurementConfiguration::userName).isEqualTo("")
+                    prop(InfluxDbMeasurementConfiguration::password).isEqualTo("")
+                }
+
+            generatedMeterPublisherRegistry = measurementPublisherFactory.getPublisher()
+            assertThat(generatedMeterPublisherRegistry).typedProp<InfluxDbMeasurementConfiguration>("configuration")
+                .all {
+                    prop(InfluxDbMeasurementConfiguration::url).isEqualTo("http://localhost:8086")
+                    prop(InfluxDbMeasurementConfiguration::bucket).isEqualTo("qalipsis-meter")
+                    prop(InfluxDbMeasurementConfiguration::org).isEqualTo("qalipsis")
+                    prop(InfluxDbMeasurementConfiguration::userName).isEqualTo("")
+                    prop(InfluxDbMeasurementConfiguration::password).isEqualTo("")
+                }
         }
 
         override fun getProperties(): Map<String, String> {
             return mapOf(
-                "meters.export.influxdb.enabled" to StringUtils.TRUE
+                "meters.export.influxdb.enabled" to StringUtils.TRUE,
+                "meters.export.influxdb.db" to "qalipsis-meters-db",
             )
         }
     }

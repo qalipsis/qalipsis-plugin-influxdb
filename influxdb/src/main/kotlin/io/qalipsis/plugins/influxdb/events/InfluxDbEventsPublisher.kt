@@ -22,7 +22,6 @@ import com.influxdb.client.kotlin.InfluxDBClientKotlin
 import com.influxdb.client.kotlin.InfluxDBClientKotlinFactory
 import com.influxdb.client.kotlin.WriteKotlinApi
 import com.influxdb.client.write.Point
-import io.micrometer.core.instrument.MeterRegistry
 import io.micronaut.context.annotation.Requires
 import io.qalipsis.api.Executors
 import io.qalipsis.api.events.AbstractBufferedEventsPublisher
@@ -32,6 +31,7 @@ import io.qalipsis.api.events.EventRange
 import io.qalipsis.api.lang.durationSinceNanos
 import io.qalipsis.api.lang.tryAndLogOrNull
 import io.qalipsis.api.logging.LoggerHelper.logger
+import io.qalipsis.api.meters.CampaignMeterRegistry
 import io.qalipsis.api.sync.SuspendedCountLatch
 import jakarta.inject.Named
 import jakarta.inject.Singleton
@@ -54,7 +54,7 @@ internal class InfluxDbEventsPublisher(
     @Named(Executors.BACKGROUND_EXECUTOR_NAME) private val coroutineScope: CoroutineScope,
     @Named(Executors.BACKGROUND_EXECUTOR_NAME) private val coroutineContext: CoroutineContext,
     private val configuration: InfluxDbEventsConfiguration,
-    private val meterRegistry: MeterRegistry,
+    private val meterRegistry: CampaignMeterRegistry,
 ) : AbstractBufferedEventsPublisher(
     configuration.minLevel,
     configuration.lingerPeriod,

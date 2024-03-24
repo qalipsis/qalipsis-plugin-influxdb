@@ -23,4 +23,3 @@ meters:
       step: PT10S
       org: qalipsis
       bucket: qalipsis-meter
-

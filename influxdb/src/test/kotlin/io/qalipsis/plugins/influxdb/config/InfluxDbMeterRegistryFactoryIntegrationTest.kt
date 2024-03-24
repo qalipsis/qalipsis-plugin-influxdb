@@ -20,11 +20,11 @@ import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
 import assertk.assertions.isNotEmpty
-import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.influx.InfluxMeterRegistry
 import io.micronaut.context.ApplicationContext
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.micronaut.test.support.TestPropertyProvider
+import io.qalipsis.api.meters.MeasurementPublisher
+import io.qalipsis.plugins.influxdb.meters.InfluxdbMeasurementPublisher
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -49,8 +49,8 @@ internal class InfluxDbMeterRegistryFactoryIntegrationTest {
         @Test
         @Timeout(10)
         internal fun `should start without influxdb meter registry`() {
-            assertThat(applicationContext.getBeansOfType(MeterRegistry::class.java)).isNotEmpty()
-            assertThat(applicationContext.getBeansOfType(InfluxMeterRegistry::class.java)).isEmpty()
+            assertThat(applicationContext.getBeansOfType(MeasurementPublisher::class.java)).isEmpty()
+            assertThat(applicationContext.getBeansOfType(InfluxdbMeasurementPublisher::class.java)).isEmpty()
         }
     }
 
@@ -70,9 +70,9 @@ internal class InfluxDbMeterRegistryFactoryIntegrationTest {
 
         @Test
         @Timeout(10)
-        internal fun `should start without influxdb meter registry`() {
-            assertThat(applicationContext.getBeansOfType(MeterRegistry::class.java)).isNotEmpty()
-            assertThat(applicationContext.getBeansOfType(InfluxMeterRegistry::class.java)).isEmpty()
+        internal fun `should not start without influxdb meter registry`() {
+            assertThat(applicationContext.getBeansOfType(MeasurementPublisher::class.java)).isEmpty()
+            assertThat(applicationContext.getBeansOfType(InfluxdbMeasurementPublisher::class.java)).isEmpty()
         }
     }
 
@@ -93,8 +93,8 @@ internal class InfluxDbMeterRegistryFactoryIntegrationTest {
         @Test
         @Timeout(10)
         internal fun `should start with influxdb meter registry`() {
-            assertThat(applicationContext.getBeansOfType(MeterRegistry::class.java)).isNotEmpty()
-            assertThat(applicationContext.getBeansOfType(InfluxMeterRegistry::class.java)).hasSize(1)
+            assertThat(applicationContext.getBeansOfType(MeasurementPublisher::class.java)).isNotEmpty()
+            assertThat(applicationContext.getBeansOfType(InfluxdbMeasurementPublisher::class.java)).hasSize(1)
         }
     }
 }
