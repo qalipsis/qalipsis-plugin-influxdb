@@ -55,14 +55,14 @@ jobs:
           summary: true
 
       - name: Upload Tests results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Test Results
           path: ./**/build/test-results/
 
       - name: Upload Tests report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: JUnit Report
           path: ./build/reports/tests/
@@ -71,7 +71,7 @@ jobs:
         run: ./gradlew build
 
       - name: Upload JARs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Jars
           path: |
